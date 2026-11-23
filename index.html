@@ -35,18 +35,30 @@
   .glab { color: #8a0046; font: 700 11px ui-monospace, 'Roboto Mono', monospace; white-space: nowrap;
           text-shadow: 0 0 2px #fff, 0 0 2px #fff, 0 0 3px #fff, 0 0 3px #fff; transform: translate(-50%, -50%); pointer-events: none; }
   .glab.sq { font-size: 16px; }
-  #goto { position: fixed; inset: 0; z-index: 2000; background: rgba(0, 0, 0, .5); display: none; align-items: flex-start; justify-content: center; }
-  #goto.show { display: flex; }
-  #goto form { margin-top: 90px; width: min(92vw, 380px); background: #10202c; color: #fff; border-radius: 12px; padding: 16px; display: grid; gap: 10px; }
-  #goto label { font-size: 13px; color: #8fb3c9; }
-  #goto input { font-size: 20px; padding: 10px; border-radius: 8px; border: 1px solid #3b6079; background: #0b1820; color: #fff; text-transform: uppercase; }
-  #goto .btns { display: flex; gap: 8px; } #goto .btns button { flex: 1; }
-  #gerr { color: #ff8fa8; font-size: 13px; min-height: 1.2em; }
+  .dlg { position: fixed; inset: 0; z-index: 2000; background: rgba(0, 0, 0, .5); display: none; align-items: flex-start; justify-content: center; }
+  .dlg.show { display: flex; }
+  .dlg form { margin-top: 90px; width: min(92vw, 380px); background: #10202c; color: #fff; border-radius: 12px; padding: 16px; display: grid; gap: 10px; }
+  .dlg label { font-size: 13px; color: #8fb3c9; }
+  .dlg input { font-size: 20px; padding: 10px; border-radius: 8px; border: 1px solid #3b6079; background: #0b1820; color: #fff; text-transform: uppercase; }
+  .dlg .btns { display: flex; gap: 8px; } .dlg .btns button { flex: 1; }
+  #gerr, #rerr { color: #ff8fa8; font-size: 13px; min-height: 1.2em; }
   #toast { position: fixed; left: 50%; bottom: 84px; transform: translateX(-50%); z-index: 3000; background: #10202c; color: #fff;
            padding: 8px 14px; border-radius: 20px; font-size: 13px; opacity: 0; transition: opacity .2s; pointer-events: none; }
   #toast.show { opacity: 1; }
   .pop { font-size: 13px; } .pop b { font-size: 16px; display: block; margin-bottom: 2px; }
   .pop button { margin-top: 8px; padding: 6px 12px; font-size: 13px; }
+  .dlg textarea { font-size: 18px; padding: 10px; border-radius: 8px; border: 1px solid #3b6079; background: #0b1820; color: #fff; text-transform: uppercase; min-height: 150px; resize: vertical; }
+  .wp { width: 26px; height: 26px; border-radius: 50%; background: #ff6f00; color: #fff; font: 700 13px system-ui, sans-serif; display: flex; align-items: center;
+        justify-content: center; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0, 0, 0, .5); transform: translate(-50%, -50%); }
+  #rowr { display: none; } #rowr.show { display: flex; } #rowr .v { font-size: 14px; }
+  #rpanel { position: fixed; left: 0; right: 0; bottom: 60px; z-index: 1000; background: rgba(16, 32, 44, .96); color: #fff; display: none; padding: 8px; max-height: 42vh; overflow: auto; }
+  #rpanel.show { display: block; }
+  #rpanel .btns { display: flex; gap: 6px; margin-bottom: 8px; } #rpanel .btns button { flex: 1; padding: 10px 4px; font-size: 13px; }
+  #rpanel table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  #rpanel td, #rpanel th { padding: 4px 6px; text-align: right; white-space: nowrap; }
+  #rpanel th { color: #8fb3c9; font-weight: 400; font-size: 11px; }
+  #rpanel td:nth-child(2), #rpanel th:nth-child(2) { text-align: left; }
+  #rhint { color: #8fb3c9; font-size: 13px; padding: 4px; }
 </style>
 </head>
 <body>
@@ -56,21 +68,36 @@
 <div id="hud">
   <div class="row" id="rowc"><span class="k">CENTRE</span><span class="v mono" id="cv">–</span><span class="x" id="cx">WGS84</span></div>
   <div class="row" id="rowg"><span class="k">GPS</span><span class="v mono off" id="gpsv">off</span><span class="x" id="gpsx"></span></div>
+  <div class="row" id="rowr"><span class="k">ROUTE</span><span class="v mono" id="rv"></span></div>
 </div>
 
 <div id="bar">
   <button id="bgps">GPS</button>
-  <button id="bgo">Go to grid</button>
+  <button id="bgo">Go to</button>
   <button id="bdig">8 fig</button>
   <button id="bgrid" class="on">Grid</button>
+  <button id="broute">Route</button>
 </div>
 
-<div id="goto">
+<div id="goto" class="dlg">
   <form id="gform" autocomplete="off">
     <label for="gin">MGRS reference – full (33T XE 8912 8234) or digits only for the current square</label>
     <input id="gin" class="mono" inputmode="text" autocapitalize="characters" spellcheck="false">
     <div id="gerr"></div>
     <div class="btns"><button type="button" id="gcancel">Cancel</button><button type="submit" class="on">Go</button></div>
+  </form>
+</div>
+<div id="rpanel">
+  <div class="btns"><button id="radd">+ Centre</button><button id="rgrids">+ Grids</button><button id="rundo">Undo</button><button id="rclear">Clear</button></div>
+  <div id="rhint">Tap the map or use '+ Centre' (crosshair) to add waypoints. Drag a waypoint to move it.</div>
+  <table id="rtab"></table>
+</div>
+<div id="rlist" class="dlg">
+  <form id="rform" autocomplete="off">
+    <label for="rin">Waypoints as MGRS references, one per line – full, or digits only for the current square</label>
+    <textarea id="rin" class="mono" autocapitalize="characters" spellcheck="false"></textarea>
+    <div id="rerr"></div>
+    <div class="btns"><button type="button" id="rcancel">Cancel</button><button type="submit" class="on">Add</button></div>
   </form>
 </div>
 <div id="toast"></div>

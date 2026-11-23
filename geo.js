@@ -97,5 +97,29 @@
     };
   }
 
-  g.Geo = { zoneOf: zoneOf, toUTM: toUTM, fromUTM: fromUTM, toMGRS: toMGRS, parseMGRS: parseMGRS };
+  // Ellipsoidal distance in metres (Vincenty inverse, WGS84).
+  function distance(lat1, lon1, lat2, lon2) {
+    if (lat1 === lat2 && lon1 === lon2) return 0;
+    const b = a * (1 - f), L = (lon2 - lon1) * R;
+    const U1 = Math.atan((1 - f) * Math.tan(lat1 * R)), U2 = Math.atan((1 - f) * Math.tan(lat2 * R));
+    const sU1 = Math.sin(U1), cU1 = Math.cos(U1), sU2 = Math.sin(U2), cU2 = Math.cos(U2);
+    let lam = L, sS = 0, cS = 0, sig = 0, c2A = 0, c2m = 0;
+    for (let i = 0; i < 100; i++) {
+      const sl = Math.sin(lam), cl = Math.cos(lam);
+      sS = Math.sqrt(Math.pow(cU2 * sl, 2) + Math.pow(cU1 * sU2 - sU1 * cU2 * cl, 2));
+      if (sS === 0) return 0;
+      cS = sU1 * sU2 + cU1 * cU2 * cl; sig = Math.atan2(sS, cS);
+      const sA = cU1 * cU2 * sl / sS; c2A = 1 - sA * sA; c2m = c2A ? cS - 2 * sU1 * sU2 / c2A : 0;
+      const C = f / 16 * c2A * (4 + f * (4 - 3 * c2A)), prev = lam;
+      lam = L + (1 - C) * f * sA * (sig + C * sS * (c2m + C * cS * (-1 + 2 * c2m * c2m)));
+      if (Math.abs(lam - prev) < 1e-12) break;
+    }
+    const u2 = c2A * (a * a - b * b) / (b * b);
+    const AA = 1 + u2 / 16384 * (4096 + u2 * (-768 + u2 * (320 - 175 * u2)));
+    const BB = u2 / 1024 * (256 + u2 * (-128 + u2 * (74 - 47 * u2)));
+    const dS = BB * sS * (c2m + BB / 4 * (cS * (-1 + 2 * c2m * c2m) - BB / 6 * c2m * (-3 + 4 * sS * sS) * (-3 + 4 * c2m * c2m)));
+    return b * AA * (sig - dS);
+  }
+
+  g.Geo = { distance: distance, zoneOf: zoneOf, toUTM: toUTM, fromUTM: fromUTM, toMGRS: toMGRS, parseMGRS: parseMGRS };
 })(typeof window !== 'undefined' ? window : globalThis);

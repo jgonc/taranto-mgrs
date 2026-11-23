@@ -17,13 +17,15 @@ GPS and offline mode only work when the app is served over HTTPS – opening `in
 - **Go to grid**: full reference (`33T XE 8912 8234`) or digits only, completed with the square at the map centre. The target square is outlined.
 - **n fig**: cycles 4 / 6 / 8 / 10-figure references (1 km to 1 m).
 - **Grid**: overlay on/off. Spacing adapts to zoom from 100 km to 10 m; heavier lines mark the next interval up.
-- Tap the map for a 10-figure reference and lat/long.
+- Tap the map for a 10-figure reference and lat/long (when Route is off).
+- **Route**: opens the route panel. Add waypoints by tapping the map, with '+ Centre' (the crosshair position) or '+ Grids' (a typed list of references, one per line). Drag a waypoint to move it; 'Undo' removes the last; 'Clear' needs a second tap. The table gives each leg's distance and bearing and the running total. With two or more waypoints the top bar shows total distance and, with GPS on, distance left along the route and distance off it. The route is kept on the phone between sessions.
 
 ## Limits
 
 - Datum is WGS84 only. No ED50 or Roma 40/Gauss-Boaga conversion – do not read coordinates across from legacy IGM sheets or drawings on those datums.
 - Offline map = tiles already viewed while online (up to 4 000 tiles). Pan and zoom over the area at the zoom levels you need before going out of coverage. Bulk tile download is deliberately absent: the OpenStreetMap tile usage policy does not allow it.
 - No Norway/Svalbard zone exceptions and no polar (UPS) areas – irrelevant for Italy.
+- Route distances are straight-line legs on the WGS84 ellipsoid – no elevation, no path-following. Bearings are from **grid** north, not true or magnetic: apply your own conversion before using a compass.
 - GPS accuracy is whatever the phone reports; a 10-figure read-out does not mean 1 m accuracy.
 - Open data only. Nothing in the app is site-specific.
 

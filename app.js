@@ -47,7 +47,7 @@
     const nd = 5 - Math.round(Math.log10(iv));
     const dg = v => String(Math.floor((((v % 1e5) + 1e5) % 1e5) / iv + 1e-6)).padStart(nd, '0');
     const style = v => ({ color: GRID_COLOUR, weight: Math.abs(v % (iv * 10)) < 1e-6 ? 2.2 : 1, opacity: .7, interactive: false });
-    const labLat = map.containerPointToLatLng([0, sz.y - 92]).lat, topLat = map.containerPointToLatLng([0, 78]).lat, labLon = map.containerPointToLatLng([14, 0]).lng;
+    const labLat = map.containerPointToLatLng([0, sz.y - 92]).lat, topLat = map.containerPointToLatLng([0, $('hud').offsetHeight + 10]).lat, labLon = map.containerPointToLatLng([14, 0]).lng;
     const STEPS = 8;
 
     for (let z = G.zoneOf(W); z <= G.zoneOf(Ea); z++) {
@@ -96,7 +96,7 @@
     const btn = document.createElement('button'); btn.textContent = 'Copy grid'; btn.addEventListener('click', () => copy(ref)); el.appendChild(btn);
     L.popup({ offset: [0, -4] }).setLatLng(latlng).setContent(el).openOn(map);
   }
-  map.on('click', ev => popupFor(ev.latlng));
+  map.on('click', ev => { if (routeOn) addWp(ev.latlng.lat, ev.latlng.lng); else popupFor(ev.latlng); });
 
   /* ---------- GPS ---------- */
   let watchId = null, follow = false, lastFix = null, dot = null, ring = null;
@@ -114,6 +114,7 @@
       dot = L.circleMarker(ll, { radius: 7, color: '#fff', weight: 2, fillColor: '#1976d2', fillOpacity: 1, interactive: false }).addTo(map);
     } else { dot.setLatLng(ll); ring.setLatLng(ll).setRadius(acc); }
     if (follow) map.setView(ll, Math.max(map.getZoom(), 16), { animate: true });
+    routeHud();
   }
   function onErr(err) {
     const why = err.code === 1 ? 'Location permission denied' : err.code === 2 ? 'No position available' : 'Position timed out';
@@ -125,6 +126,7 @@
     watchId = null; follow = false; lastFix = null;
     if (dot) { map.removeLayer(dot); map.removeLayer(ring); dot = ring = null; }
     const msg = $('gpsv').textContent; gpsUi(); if (keepMsg) $('gpsv').textContent = msg;
+    routeHud();
   }
   $('bgps').addEventListener('click', () => {
     if (!('geolocation' in navigator)) { toast('No location service in this browser'); return; }
@@ -155,15 +157,102 @@
     popupFor(ll, 'Centre of the ' + (cell.size >= 1000 ? cell.size / 1000 + ' km' : cell.size + ' m') + ' square');
   });
 
+  /* ---------- Route: waypoints, leg distances, grid bearings ---------- */
+  let route = store.get('route', []), routeOn = false, rline = null, clearArmed = 0;
+  const routeLayer = L.layerGroup().addTo(map);
+  const fmtD = m => m >= 1000 ? (m / 1000).toFixed(2) + ' km' : Math.round(m) + ' m';
+  function gridBrg(p, q) {               // bearing from grid north, in the UTM zone of the leg's start point
+    const z = G.zoneOf(p[1]), u = G.toUTM(p[0], p[1], z), v = G.toUTM(q[0], q[1], z);
+    const d = Math.atan2(v.e - u.e, v.n - u.n) * 180 / Math.PI;
+    return String(Math.round(d + 360) % 360).padStart(3, '0') + '°';
+  }
+  function legs() {
+    let tot = 0;
+    const rows = route.map((p, i) => {
+      const d = i ? G.distance(route[i - 1][0], route[i - 1][1], p[0], p[1]) : 0; tot += d;
+      return { i: i, ref: mgrs({ lat: p[0], lng: p[1] }), d: d, b: i ? gridBrg(route[i - 1], p) : '', cum: tot };
+    });
+    return { rows: rows, tot: tot };
+  }
+  function progress(ll, L) {              // nearest point on the route: distance off it and distance left along it
+    let best = null;
+    for (let i = 1; i < route.length; i++) {
+      const p = route[i - 1], q = route[i], z = G.zoneOf(p[1]);
+      const A = G.toUTM(p[0], p[1], z), B = G.toUTM(q[0], q[1], z), P = G.toUTM(ll.lat, ll.lng, z);
+      const dx = B.e - A.e, dy = B.n - A.n, l2 = dx * dx + dy * dy;
+      const t = l2 ? Math.max(0, Math.min(1, ((P.e - A.e) * dx + (P.n - A.n) * dy) / l2)) : 0;
+      const off = Math.hypot(P.e - (A.e + t * dx), P.n - (A.n + t * dy));
+      if (!best || off < best.off) best = { off: off, rem: L.tot - (L.rows[i - 1].cum + t * L.rows[i].d) };
+    }
+    return best;
+  }
+  function routeHud(L) {
+    if (route.length < 2) { $('rowr').classList.remove('show'); return; }
+    L = L || legs();
+    let t = fmtD(L.tot);
+    if (lastFix) { const p = progress(lastFix, L); t += ' · left ' + fmtD(p.rem) + ' · off ' + fmtD(p.off); }
+    $('rv').textContent = t; $('rowr').classList.add('show');
+  }
+  function renderPanel() {
+    const L = legs();
+    $('rhint').style.display = route.length ? 'none' : 'block';
+    $('rtab').innerHTML = !route.length ? '' : '<tr><th>#</th><th>Grid</th><th>Leg</th><th>Brg (grid)</th><th>Total</th></tr>' +
+      L.rows.map(r => '<tr><td>' + (r.i + 1) + '</td><td class="mono">' + r.ref + '</td><td>' + (r.i ? fmtD(r.d) : '–') + '</td><td>' +
+        (r.i ? r.b : '–') + '</td><td>' + fmtD(r.cum) + '</td></tr>').join('');
+    routeHud(L);
+  }
+  function drawRoute() {
+    routeLayer.clearLayers();
+    rline = L.polyline(route, { color: '#ff6f00', weight: 4, opacity: .9, interactive: false }).addTo(routeLayer);
+    route.forEach((p, i) => {
+      const m = L.marker(p, { draggable: routeOn, interactive: routeOn, keyboard: false,
+        icon: L.divIcon({ className: '', html: '<div class="wp">' + (i + 1) + '</div>', iconSize: [0, 0] }) }).addTo(routeLayer);
+      m.on('drag', () => { const ll = m.getLatLng(); route[i] = [ll.lat, ll.lng]; rline.setLatLngs(route); renderPanel(); });
+      m.on('dragend', () => store.set('route', route));
+    });
+    renderPanel();
+  }
+  function addWp(lat, lon) { route.push([lat, lon]); store.set('route', route); drawRoute(); }
+
+  $('broute').addEventListener('click', () => {
+    routeOn = !routeOn; $('broute').classList.toggle('on', routeOn);
+    $('rpanel').style.bottom = $('bar').offsetHeight + 'px'; $('rpanel').classList.toggle('show', routeOn);
+    map.closePopup(); drawRoute();
+  });
+  $('radd').addEventListener('click', () => { const c = map.getCenter(); addWp(c.lat, c.lng); });
+  $('rundo').addEventListener('click', () => { if (route.length) { route.pop(); store.set('route', route); drawRoute(); } });
+  $('rclear').addEventListener('click', () => {
+    if (!route.length) return;
+    if (Date.now() - clearArmed < 3000) { route = []; clearArmed = 0; $('rclear').textContent = 'Clear'; store.set('route', route); drawRoute(); }
+    else { clearArmed = Date.now(); $('rclear').textContent = 'Sure?'; setTimeout(() => { $('rclear').textContent = 'Clear'; }, 3000); }
+  });
+  const closeList = () => { $('rlist').classList.remove('show'); $('rin').blur(); };
+  $('rgrids').addEventListener('click', () => { $('rerr').textContent = ''; $('rlist').classList.add('show'); $('rin').focus(); });
+  $('rcancel').addEventListener('click', closeList);
+  $('rform').addEventListener('submit', ev => {
+    ev.preventDefault();
+    const c = map.getCenter(), ctx = G.toMGRS(c.lat, c.lng, 0) || undefined;
+    const lines = $('rin').value.split(/[\n,;]+/).map(x => x.trim()).filter(Boolean), pts = [];
+    if (!lines.length) { $('rerr').textContent = 'Enter at least one reference'; return; }
+    for (let i = 0; i < lines.length; i++) {
+      try { const cell = G.parseMGRS(lines[i], ctx); pts.push([cell.lat, cell.lon]); }
+      catch (e) { $('rerr').textContent = 'Line ' + (i + 1) + ' (' + lines[i] + '): ' + e.message; return; }
+    }
+    route = route.concat(pts); store.set('route', route); $('rin').value = ''; closeList(); drawRoute();
+    follow = false; gpsUi();
+    if (route.length > 1) map.fitBounds(L.latLngBounds(route), { paddingTopLeft: [30, 110], paddingBottomRight: [30, 260] }); else map.setView(route[0], 15);
+  });
+
   /* ---------- Precision and grid toggles ---------- */
   function digUi() { $('bdig').textContent = digits * 2 + ' fig'; $('cx').textContent = 'WGS84 · ' + ['100 km', '10 km', '1 km', '100 m', '10 m', '1 m'][digits]; }
   $('bdig').addEventListener('click', () => {
     digits = digits >= 5 ? 2 : digits + 1; store.set('digits', digits); digUi(); updateCentre();
     if (lastFix) $('gpsv').textContent = mgrs(lastFix);
+    renderPanel();
   });
   $('bgrid').addEventListener('click', () => { gridOn = !gridOn; store.set('grid', gridOn); $('bgrid').classList.toggle('on', gridOn); drawGrid(); });
 
-  $('bgrid').classList.toggle('on', gridOn); digUi(); gpsUi(); updateCentre(); drawGrid();
+  $('bgrid').classList.toggle('on', gridOn); digUi(); gpsUi(); updateCentre(); drawGrid(); drawRoute();
 
   if ('serviceWorker' in navigator) window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(() => { /* offline cache unavailable */ }); });
 })();
