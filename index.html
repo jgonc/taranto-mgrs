@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#10202c">
+<title>Taranto MGRS</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="vendor/leaflet.css">
+<style>
+  html, body { height: 100%; margin: 0; background: #10202c; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
+  #map { position: fixed; inset: 0; }
+  .mono { font-family: ui-monospace, 'Roboto Mono', 'DejaVu Sans Mono', Menlo, Consolas, monospace; font-variant-numeric: tabular-nums; }
+  #hud { position: fixed; top: 0; left: 0; right: 0; z-index: 1000; background: rgba(16, 32, 44, .92); color: #fff;
+         padding: 8px 12px; display: grid; gap: 2px; box-shadow: 0 1px 6px rgba(0, 0, 0, .4); }
+  .row { display: flex; align-items: baseline; gap: 10px; min-height: 26px; }
+  .row .k { font-size: 10px; letter-spacing: .08em; color: #8fb3c9; width: 52px; flex: none; }
+  .row .v { font-size: 19px; font-weight: 600; white-space: nowrap; }
+  .row .x { font-size: 11px; color: #8fb3c9; margin-left: auto; white-space: nowrap; }
+  #gpsv.off { color: #6d8797; font-weight: 400; font-size: 14px; }
+  #cross { position: fixed; top: 50%; left: 50%; width: 28px; height: 28px; margin: -14px 0 0 -14px; z-index: 900; pointer-events: none; }
+  #cross::before, #cross::after { content: ''; position: absolute; background: #10202c; box-shadow: 0 0 0 1px rgba(255, 255, 255, .8); }
+  #cross::before { left: 13px; top: 0; width: 2px; height: 28px; }
+  #cross::after { top: 13px; left: 0; height: 2px; width: 28px; }
+  #bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 1000; display: flex; gap: 6px; padding: 8px;
+         padding-bottom: max(8px, env(safe-area-inset-bottom)); background: rgba(16, 32, 44, .92); }
+  button { font: inherit; font-size: 14px; font-weight: 600; color: #fff; background: #24465c; border: 0; border-radius: 8px; padding: 12px 6px; }
+  #bar button { flex: 1; }
+  button.on { background: #b0005a; }
+  button:active { filter: brightness(1.25); }
+  .leaflet-bottom { bottom: 62px; }
+  .leaflet-top { top: 70px; }
+  .glab { color: #8a0046; font: 700 11px ui-monospace, 'Roboto Mono', monospace; white-space: nowrap;
+          text-shadow: 0 0 2px #fff, 0 0 2px #fff, 0 0 3px #fff, 0 0 3px #fff; transform: translate(-50%, -50%); pointer-events: none; }
+  .glab.sq { font-size: 16px; }
+  #goto { position: fixed; inset: 0; z-index: 2000; background: rgba(0, 0, 0, .5); display: none; align-items: flex-start; justify-content: center; }
+  #goto.show { display: flex; }
+  #goto form { margin-top: 90px; width: min(92vw, 380px); background: #10202c; color: #fff; border-radius: 12px; padding: 16px; display: grid; gap: 10px; }
+  #goto label { font-size: 13px; color: #8fb3c9; }
+  #goto input { font-size: 20px; padding: 10px; border-radius: 8px; border: 1px solid #3b6079; background: #0b1820; color: #fff; text-transform: uppercase; }
+  #goto .btns { display: flex; gap: 8px; } #goto .btns button { flex: 1; }
+  #gerr { color: #ff8fa8; font-size: 13px; min-height: 1.2em; }
+  #toast { position: fixed; left: 50%; bottom: 84px; transform: translateX(-50%); z-index: 3000; background: #10202c; color: #fff;
+           padding: 8px 14px; border-radius: 20px; font-size: 13px; opacity: 0; transition: opacity .2s; pointer-events: none; }
+  #toast.show { opacity: 1; }
+  .pop { font-size: 13px; } .pop b { font-size: 16px; display: block; margin-bottom: 2px; }
+  .pop button { margin-top: 8px; padding: 6px 12px; font-size: 13px; }
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div id="cross"></div>
+
+<div id="hud">
+  <div class="row" id="rowc"><span class="k">CENTRE</span><span class="v mono" id="cv">–</span><span class="x" id="cx">WGS84</span></div>
+  <div class="row" id="rowg"><span class="k">GPS</span><span class="v mono off" id="gpsv">off</span><span class="x" id="gpsx"></span></div>
+</div>
+
+<div id="bar">
+  <button id="bgps">GPS</button>
+  <button id="bgo">Go to grid</button>
+  <button id="bdig">8 fig</button>
+  <button id="bgrid" class="on">Grid</button>
+</div>
+
+<div id="goto">
+  <form id="gform" autocomplete="off">
+    <label for="gin">MGRS reference – full (33T XE 8912 8234) or digits only for the current square</label>
+    <input id="gin" class="mono" inputmode="text" autocapitalize="characters" spellcheck="false">
+    <div id="gerr"></div>
+    <div class="btns"><button type="button" id="gcancel">Cancel</button><button type="submit" class="on">Go</button></div>
+  </form>
+</div>
+<div id="toast"></div>
+
+<script src="vendor/leaflet.js"></script>
+<script src="geo.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
