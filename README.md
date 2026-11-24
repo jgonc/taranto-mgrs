@@ -37,3 +37,7 @@ GPS and offline mode only work when the app is served over HTTPS – opening `in
 ## Files
 
 `index.html`, `app.js` (UI), `geo.js` (conversion maths), `sw.js` (offline cache), `manifest.webmanifest`, `icons/`, `vendor/` (Leaflet 1.9.4).
+
+## Licence
+
+The app code is released under the MIT licence – see `LICENSE`. `vendor/` holds Leaflet 1.9.4, which is separately licensed (BSD 2-Clause) by its authors. Map tiles are not part of this repository and remain under their providers' terms (OpenStreetMap, OpenTopoMap).
