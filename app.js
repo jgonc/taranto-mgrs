@@ -14,10 +14,21 @@
   const view = store.get('view', null);
 
   const map = L.map('map', { zoomControl: false }).setView(view ? [view[0], view[1]] : TARANTO, view ? view[2] : 13);
-  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19, crossOrigin: 'anonymous',
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-  }).addTo(map);
+  const OSM_ATTR = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
+  const bases = {
+    Street: L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, crossOrigin: 'anonymous', attribution: OSM_ATTR }),
+    // Contours and hill shading. Native tiles stop at zoom 17; closer zooms are enlarged, not sharper.
+    Topo: L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', { subdomains: 'abc', maxZoom: 19, maxNativeZoom: 17,
+      attribution: 'Map data: ' + OSM_ATTR + ', SRTM | Map style: &copy; <a href="https://opentopomap.org">OpenTopoMap</a> (CC-BY-SA)' })
+  };
+  let baseName = bases[store.get('base', 'Street')] ? store.get('base', 'Street') : 'Street';
+  bases[baseName].addTo(map);
+  function baseUi() { $('bmap').textContent = 'Map: ' + baseName; $('bmap').classList.toggle('alt', baseName !== 'Street'); }
+  $('bmap').addEventListener('click', () => {
+    map.removeLayer(bases[baseName]); baseName = baseName === 'Street' ? 'Topo' : 'Street';
+    bases[baseName].addTo(map).bringToBack(); store.set('base', baseName); baseUi();
+  });
+  baseUi();
   L.control.scale({ imperial: false, position: 'bottomleft' }).addTo(map);
   const gridLayer = L.layerGroup().addTo(map), markLayer = L.layerGroup().addTo(map);
 

@@ -31,6 +31,7 @@
   button.on { background: #b0005a; }
   button.alt { background: #0b57d0; }
   #bar button { font-size: 13px; padding: 12px 2px; white-space: nowrap; }
+  #bmap { position: absolute; right: 8px; top: calc(100% + 8px); padding: 9px 12px; font-size: 13px; box-shadow: 0 1px 5px rgba(0, 0, 0, .45); }
   #hud.alt #cx { color: #ffb300; font-weight: 700; }
   button:active { filter: brightness(1.25); }
   .leaflet-bottom { bottom: 62px; }
@@ -71,6 +72,7 @@
 <div id="hud">
   <div class="row" id="rowc"><span class="k">CENTRE</span><span class="v mono" id="cv">–</span><span class="x" id="cx">WGS84</span></div>
   <div class="row" id="rowg"><span class="k">GPS</span><span class="v mono off" id="gpsv">off</span><span class="x" id="gpsx"></span></div>
+  <button id="bmap">Map: Street</button>
   <div class="row" id="rowr"><span class="k">ROUTE</span><span class="v mono" id="rv"></span></div>
 </div>
 

@@ -1,5 +1,5 @@
 /* Offline support: app shell is precached; map tiles are cached as they are viewed. */
-const SHELL = 'tmgrs-shell-v3', TILES = 'tmgrs-tiles-v1', MAX_TILES = 4000;
+const SHELL = 'tmgrs-shell-v4', TILES = 'tmgrs-tiles-v1', MAX_TILES = 8000;
 const FILES = ['./', 'index.html', 'app.js', 'geo.js', 'manifest.webmanifest', 'vendor/leaflet.js', 'vendor/leaflet.css',
   'icons/icon-192.png', 'icons/icon-512.png'];
 
@@ -16,11 +16,13 @@ async function trim(cache) {
 self.addEventListener('fetch', e => {
   const req = e.request, url = new URL(req.url);
   if (req.method !== 'GET') return;
-  if (url.hostname === 'tile.openstreetmap.org') {            // tiles: cache first
+  const topo = url.hostname.endsWith('.tile.opentopomap.org');
+  if (url.hostname === 'tile.openstreetmap.org' || topo) {    // tiles: cache first
     e.respondWith(caches.open(TILES).then(async c => {
       const hit = await c.match(req);
       if (hit) return hit;
-      const res = await fetch(req);
+      // Topo tiles are requested with CORS so they can be stored; if the server refuses, show the tile uncached.
+      const res = topo ? await fetch(req.url, { mode: 'cors', credentials: 'omit' }).catch(() => fetch(req)) : await fetch(req);
       if (res.ok) { c.put(req, res.clone()); if (Math.random() < .02) trim(c); }
       return res;
     }));
