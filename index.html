@@ -29,6 +29,9 @@
   button { font: inherit; font-size: 14px; font-weight: 600; color: #fff; background: #24465c; border: 0; border-radius: 8px; padding: 12px 6px; }
   #bar button { flex: 1; }
   button.on { background: #b0005a; }
+  button.alt { background: #0b57d0; }
+  #bar button { font-size: 13px; padding: 12px 2px; white-space: nowrap; }
+  #hud.alt #cx { color: #ffb300; font-weight: 700; }
   button:active { filter: brightness(1.25); }
   .leaflet-bottom { bottom: 62px; }
   .leaflet-top { top: 70px; }
@@ -75,13 +78,14 @@
   <button id="bgps">GPS</button>
   <button id="bgo">Go to</button>
   <button id="bdig">8 fig</button>
+  <button id="bdat">WGS84</button>
   <button id="bgrid" class="on">Grid</button>
   <button id="broute">Route</button>
 </div>
 
 <div id="goto" class="dlg">
   <form id="gform" autocomplete="off">
-    <label for="gin">MGRS reference – full (33T XE 8912 8234) or digits only for the current square</label>
+    <label for="gin">Grid reference (<span id="gdat">WGS84</span>) – full (33T XE 8912 8234) or digits only for the current square</label>
     <input id="gin" class="mono" inputmode="text" autocapitalize="characters" spellcheck="false">
     <div id="gerr"></div>
     <div class="btns"><button type="button" id="gcancel">Cancel</button><button type="submit" class="on">Go</button></div>
@@ -94,7 +98,7 @@
 </div>
 <div id="rlist" class="dlg">
   <form id="rform" autocomplete="off">
-    <label for="rin">Waypoints as MGRS references, one per line – full, or digits only for the current square</label>
+    <label for="rin">Waypoints as grid references (<span id="rdat">WGS84</span>), one per line – full, or digits only for the current square</label>
     <textarea id="rin" class="mono" autocapitalize="characters" spellcheck="false"></textarea>
     <div id="rerr"></div>
     <div class="btns"><button type="button" id="rcancel">Cancel</button><button type="submit" class="on">Add</button></div>

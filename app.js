@@ -10,6 +10,7 @@
 
   let digits = store.get('digits', 4);            // per axis: 4 = 8-figure (10 m)
   let gridOn = store.get('grid', true);
+  let D = G.datums[store.get('datum', 'WGS84')] || G.datums.WGS84;   // active datum for grid and references
   const view = store.get('view', null);
 
   const map = L.map('map', { zoomControl: false }).setView(view ? [view[0], view[1]] : TARANTO, view ? view[2] : 13);
@@ -22,10 +23,11 @@
 
   function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.remove('show'), 1600); }
   function copy(text) {
+    if (D.name !== 'WGS84') text += ' (' + D.name + ')';
     try { navigator.clipboard.writeText(text).then(() => toast('Copied ' + text), () => toast('Copy not available')); }
     catch (e) { toast('Copy not available'); }
   }
-  const mgrs = (ll, d) => { const m = G.toMGRS(ll.lat, ll.lng, d === undefined ? digits : d); return m ? m.text : 'outside MGRS'; };
+  const mgrs = (ll, d) => { const m = D.toMGRS(ll.lat, ll.lng, Math.min(d === undefined ? digits : d, D.maxDigits)); return m ? m.text : 'outside MGRS'; };
 
   /* ---------- HUD ---------- */
   function updateCentre() { $('cv').textContent = mgrs(map.getCenter()); }
@@ -34,7 +36,7 @@
 
   /* ---------- Grid overlay ---------- */
   function label(latlng, text, cls) {
-    L.marker(latlng, { interactive: false, keyboard: false, icon: L.divIcon({ className: '', html: '<div class="glab ' + (cls || '') + '">' + text + '</div>', iconSize: [0, 0] }) }).addTo(gridLayer);
+    L.marker(latlng, { interactive: false, keyboard: false, icon: L.divIcon({ className: '', html: '<div class="glab ' + (cls || '') + '" style="color:' + D.labelColour + '">' + text + '</div>', iconSize: [0, 0] }) }).addTo(gridLayer);
   }
   function drawGrid() {
     gridLayer.clearLayers();
@@ -46,39 +48,39 @@
     const iv = [10, 100, 1000, 10000, 100000].find(i => widthM / i <= 10) || 100000;
     const nd = 5 - Math.round(Math.log10(iv));
     const dg = v => String(Math.floor((((v % 1e5) + 1e5) % 1e5) / iv + 1e-6)).padStart(nd, '0');
-    const style = v => ({ color: GRID_COLOUR, weight: Math.abs(v % (iv * 10)) < 1e-6 ? 2.2 : 1, opacity: .7, interactive: false });
+    const style = v => ({ color: D.colour, weight: Math.abs(v % (iv * 10)) < 1e-6 ? 2.2 : 1, opacity: .7, interactive: false });
     const labLat = map.containerPointToLatLng([0, sz.y - 92]).lat, topLat = map.containerPointToLatLng([0, $('hud').offsetHeight + 10]).lat, labLon = map.containerPointToLatLng([14, 0]).lng;
     const STEPS = 8;
 
-    for (let z = G.zoneOf(W); z <= G.zoneOf(Ea); z++) {
+    for (let z = D.zoneOf(mid, W); z <= D.zoneOf(mid, Ea); z++) {
       const zw = (z - 1) * 6 - 180, ze = zw + 6, w = Math.max(W, zw), e = Math.min(Ea, ze);
       if (e <= w) continue;
       let e0 = Infinity, e1 = -Infinity, n0 = Infinity, n1 = -Infinity;
       [S, mid, N].forEach(la => [w, (w + e) / 2, e].forEach(lo => {
-        const u = G.toUTM(la, lo, z);
+        const u = D.toUTM(la, lo, z);
         e0 = Math.min(e0, u.e); e1 = Math.max(e1, u.e); n0 = Math.min(n0, u.n); n1 = Math.max(n1, u.n);
       }));
-      const inZone = p => p.lon >= zw - 1e-9 && p.lon <= ze + 1e-9;
-      const nLab = G.toUTM(labLat, (w + e) / 2, z).n;
-      const eLab = labLon >= zw && labLon < ze ? G.toUTM(mid, labLon, z).e : null;
+      const inZone = p => p.llon >= zw - 1e-9 && p.llon <= ze + 1e-9;
+      const nLab = D.toUTM(labLat, (w + e) / 2, z).n;
+      const eLab = labLon >= zw && labLon < ze ? D.toUTM(mid, labLon, z).e : null;
 
       for (let E = Math.ceil(e0 / iv) * iv; E <= e1; E += iv) {
         const pts = [];
-        for (let i = 0; i <= STEPS; i++) { const p = G.fromUTM(z, E, n0 + (n1 - n0) * i / STEPS); if (inZone(p)) pts.push([p.lat, p.lon]); }
+        for (let i = 0; i <= STEPS; i++) { const p = D.fromUTM(z, E, n0 + (n1 - n0) * i / STEPS); if (inZone(p)) pts.push([p.lat, p.lon]); }
         if (pts.length > 1) L.polyline(pts, style(E)).addTo(gridLayer);
-        if (iv < 1e5) { const p = G.fromUTM(z, E, nLab); if (inZone(p) && p.lon > W && p.lon < Ea) label([labLat, p.lon], dg(E)); }
+        if (iv < 1e5) { const p = D.fromUTM(z, E, nLab); if (inZone(p) && p.lon > W && p.lon < Ea) label([labLat, p.lon], dg(E)); }
       }
       for (let Nn = Math.ceil(n0 / iv) * iv; Nn <= n1; Nn += iv) {
         const pts = [];
-        for (let i = 0; i <= STEPS; i++) { const p = G.fromUTM(z, e0 + (e1 - e0) * i / STEPS, Nn); if (inZone(p)) pts.push([p.lat, p.lon]); }
+        for (let i = 0; i <= STEPS; i++) { const p = D.fromUTM(z, e0 + (e1 - e0) * i / STEPS, Nn); if (inZone(p)) pts.push([p.lat, p.lon]); }
         if (pts.length > 1) L.polyline(pts, style(Nn)).addTo(gridLayer);
-        if (iv < 1e5 && eLab !== null) { const p = G.fromUTM(z, eLab, Nn); if (p.lat > labLat && p.lat < topLat) label([p.lat, labLon], dg(Nn)); }
+        if (iv < 1e5 && eLab !== null) { const p = D.fromUTM(z, eLab, Nn); if (p.lat > labLat && p.lat < topLat) label([p.lat, labLon], dg(Nn)); }
       }
       if (iv === 1e5) {
         for (let E = Math.floor(e0 / 1e5) * 1e5; E <= e1; E += 1e5) for (let Nn = Math.floor(n0 / 1e5) * 1e5; Nn <= n1; Nn += 1e5) {
-          const p = G.fromUTM(z, E + 5e4, Nn + 5e4);
+          const p = D.fromUTM(z, E + 5e4, Nn + 5e4);
           if (!inZone(p) || !b.contains([p.lat, p.lon])) continue;
-          const m = G.toMGRS(p.lat, p.lon, 0); if (m) label([p.lat, p.lon], m.sq, 'sq');
+          const m = D.toMGRS(p.lat, p.lon, 0); if (m) label([p.lat, p.lon], m.sq, 'sq');
         }
       }
     }
@@ -92,7 +94,8 @@
     const ref = mgrs(latlng, 5);
     const el = document.createElement('div'); el.className = 'pop';
     el.innerHTML = (title ? '<div>' + title + '</div>' : '') + '<b class="mono">' + ref + '</b><span class="mono">' +
-      latlng.lat.toFixed(6) + ', ' + latlng.lng.toFixed(6) + '</span><br>';
+      latlng.lat.toFixed(6) + ', ' + latlng.lng.toFixed(6) + '</span><br>' +
+      (D.name === 'WGS84' ? '' : '<span>Grid: ' + D.name + ' · lat/long: WGS84</span><br>');
     const btn = document.createElement('button'); btn.textContent = 'Copy grid'; btn.addEventListener('click', () => copy(ref)); el.appendChild(btn);
     L.popup({ offset: [0, -4] }).setLatLng(latlng).setContent(el).openOn(map);
   }
@@ -145,9 +148,9 @@
   $('gcancel').addEventListener('click', closeGoto);
   $('gform').addEventListener('submit', ev => {
     ev.preventDefault();
-    const c = map.getCenter(), ctx = G.toMGRS(c.lat, c.lng, 0);
+    const c = map.getCenter(), ctx = D.toMGRS(c.lat, c.lng, 0);
     let cell;
-    try { cell = G.parseMGRS($('gin').value, ctx || undefined); } catch (e) { $('gerr').textContent = e.message; return; }
+    try { cell = D.parseMGRS($('gin').value, ctx || undefined); } catch (e) { $('gerr').textContent = e.message; return; }
     closeGoto(); follow = false; gpsUi();
     markLayer.clearLayers();
     L.polygon(cell.corners, { color: '#ff6f00', weight: 2, fillOpacity: .15, interactive: false }).addTo(markLayer);
@@ -162,7 +165,7 @@
   const routeLayer = L.layerGroup().addTo(map);
   const fmtD = m => m >= 1000 ? (m / 1000).toFixed(2) + ' km' : Math.round(m) + ' m';
   function gridBrg(p, q) {               // bearing from grid north, in the UTM zone of the leg's start point
-    const z = G.zoneOf(p[1]), u = G.toUTM(p[0], p[1], z), v = G.toUTM(q[0], q[1], z);
+    const z = D.zoneOf(p[0], p[1]), u = D.toUTM(p[0], p[1], z), v = D.toUTM(q[0], q[1], z);
     const d = Math.atan2(v.e - u.e, v.n - u.n) * 180 / Math.PI;
     return String(Math.round(d + 360) % 360).padStart(3, '0') + '°';
   }
@@ -177,8 +180,8 @@
   function progress(ll, L) {              // nearest point on the route: distance off it and distance left along it
     let best = null;
     for (let i = 1; i < route.length; i++) {
-      const p = route[i - 1], q = route[i], z = G.zoneOf(p[1]);
-      const A = G.toUTM(p[0], p[1], z), B = G.toUTM(q[0], q[1], z), P = G.toUTM(ll.lat, ll.lng, z);
+      const p = route[i - 1], q = route[i], z = D.zoneOf(p[0], p[1]);
+      const A = D.toUTM(p[0], p[1], z), B = D.toUTM(q[0], q[1], z), P = D.toUTM(ll.lat, ll.lng, z);
       const dx = B.e - A.e, dy = B.n - A.n, l2 = dx * dx + dy * dy;
       const t = l2 ? Math.max(0, Math.min(1, ((P.e - A.e) * dx + (P.n - A.n) * dy) / l2)) : 0;
       const off = Math.hypot(P.e - (A.e + t * dx), P.n - (A.n + t * dy));
@@ -231,11 +234,11 @@
   $('rcancel').addEventListener('click', closeList);
   $('rform').addEventListener('submit', ev => {
     ev.preventDefault();
-    const c = map.getCenter(), ctx = G.toMGRS(c.lat, c.lng, 0) || undefined;
+    const c = map.getCenter(), ctx = D.toMGRS(c.lat, c.lng, 0) || undefined;
     const lines = $('rin').value.split(/[\n,;]+/).map(x => x.trim()).filter(Boolean), pts = [];
     if (!lines.length) { $('rerr').textContent = 'Enter at least one reference'; return; }
     for (let i = 0; i < lines.length; i++) {
-      try { const cell = G.parseMGRS(lines[i], ctx); pts.push([cell.lat, cell.lon]); }
+      try { const cell = D.parseMGRS(lines[i], ctx); pts.push([cell.lat, cell.lon]); }
       catch (e) { $('rerr').textContent = 'Line ' + (i + 1) + ' (' + lines[i] + '): ' + e.message; return; }
     }
     route = route.concat(pts); store.set('route', route); $('rin').value = ''; closeList(); drawRoute();
@@ -244,15 +247,28 @@
   });
 
   /* ---------- Precision and grid toggles ---------- */
-  function digUi() { $('bdig').textContent = digits * 2 + ' fig'; $('cx').textContent = 'WGS84 · ' + ['100 km', '10 km', '1 km', '100 m', '10 m', '1 m'][digits]; }
+  function digUi() { const d = Math.min(digits, D.maxDigits); $('bdig').textContent = d * 2 + ' fig'; $('cx').textContent = D.name + ' · ' + ['100 km', '10 km', '1 km', '100 m', '10 m', '1 m'][d]; }
   $('bdig').addEventListener('click', () => {
-    digits = digits >= 5 ? 2 : digits + 1; store.set('digits', digits); digUi(); updateCentre();
+    digits = digits >= D.maxDigits ? 2 : digits + 1; store.set('digits', digits); digUi(); updateCentre();
     if (lastFix) $('gpsv').textContent = mgrs(lastFix);
     renderPanel();
   });
   $('bgrid').addEventListener('click', () => { gridOn = !gridOn; store.set('grid', gridOn); $('bgrid').classList.toggle('on', gridOn); drawGrid(); });
 
-  $('bgrid').classList.toggle('on', gridOn); digUi(); gpsUi(); updateCentre(); drawGrid(); drawRoute();
+  /* ---------- Datum switch ---------- */
+  function datUi() {
+    const alt = D.name !== 'WGS84';
+    $('bdat').textContent = D.name; $('bdat').classList.toggle('alt', alt); $('hud').classList.toggle('alt', alt);
+    $('gdat').textContent = D.name; $('rdat').textContent = D.name;
+  }
+  $('bdat').addEventListener('click', () => {
+    D = G.datums[D.name === 'WGS84' ? 'ED50' : 'WGS84']; store.set('datum', D.name);
+    map.closePopup(); datUi(); digUi(); updateCentre();
+    if (lastFix) $('gpsv').textContent = mgrs(lastFix);
+    drawGrid(); renderPanel(); toast('Datum: ' + D.name);
+  });
+
+  $('bgrid').classList.toggle('on', gridOn); datUi(); digUi(); gpsUi(); updateCentre(); drawGrid(); drawRoute();
 
   if ('serviceWorker' in navigator) window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(() => { /* offline cache unavailable */ }); });
 })();
