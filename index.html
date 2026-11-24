@@ -32,6 +32,16 @@
   button.alt { background: #0b57d0; }
   #bar button { font-size: 13px; padding: 12px 2px; white-space: nowrap; }
   #bmap { position: absolute; right: 8px; top: calc(100% + 8px); padding: 9px 12px; font-size: 13px; box-shadow: 0 1px 5px rgba(0, 0, 0, .45); }
+  #binfo { position: absolute; left: 8px; top: calc(100% + 8px); width: 38px; padding: 9px 0; font-size: 15px; box-shadow: 0 1px 5px rgba(0, 0, 0, .45); }
+  #info { position: fixed; inset: 0; z-index: 2500; background: #10202c; color: #e8f0f5; display: none; overflow: auto; }
+  #info.show { display: block; }
+  #info .in { max-width: 640px; margin: 0 auto; padding: 18px 16px 96px; font-size: 15px; line-height: 1.45; }
+  #info h1 { font-size: 20px; margin: 0 0 12px; color: #fff; }
+  #info h2 { font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: #8fb3c9; margin: 22px 0 6px; }
+  #info ul { margin: 0; padding-left: 20px; } #info li { margin-bottom: 7px; } #info b { color: #fff; }
+  #info .warn { border: 2px solid #ffb300; border-radius: 10px; padding: 12px 14px; color: #fff; font-weight: 600; }
+  #info .foot { position: fixed; left: 0; right: 0; bottom: 0; padding: 10px 16px; padding-bottom: max(10px, env(safe-area-inset-bottom)); background: #10202c; box-shadow: 0 -1px 6px rgba(0, 0, 0, .5); }
+  #info .foot button { width: 100%; max-width: 640px; display: block; margin: 0 auto; padding: 14px; font-size: 15px; }
   #hud.alt #cx { color: #ffb300; font-weight: 700; }
   button:active { filter: brightness(1.25); }
   .leaflet-bottom { bottom: 62px; }
@@ -72,6 +82,7 @@
 <div id="hud">
   <div class="row" id="rowc"><span class="k">CENTRE</span><span class="v mono" id="cv">–</span><span class="x" id="cx">WGS84</span></div>
   <div class="row" id="rowg"><span class="k">GPS</span><span class="v mono off" id="gpsv">off</span><span class="x" id="gpsx"></span></div>
+  <button id="binfo" aria-label="Instructions and limits">?</button>
   <button id="bmap">Map: Street</button>
   <div class="row" id="rowr"><span class="k">ROUTE</span><span class="v mono" id="rv"></span></div>
 </div>
@@ -105,6 +116,53 @@
     <div id="rerr"></div>
     <div class="btns"><button type="button" id="rcancel">Cancel</button><button type="submit" class="on">Add</button></div>
   </form>
+</div>
+<div id="info">
+  <div class="in">
+    <h1>Read before use</h1>
+    <div class="warn">This app is an aid to navigation, not a navigation system. Never rely on it alone. Carry a paper map and a compass, know how to use them, and tell someone your plan.</div>
+
+    <h2>What it is</h2>
+    <ul>
+      <li><b>Unofficial.</b> A personal project built on open data. It is not a product of, and is not endorsed by, any military, government or mapping organisation.</li>
+      <li><b>Not for</b> operational use, surveying, setting out, emergency response or any task where a wrong position could cause harm or loss.</li>
+      <li><b>No warranty.</b> It is provided as it is, without any guarantee that it is correct, complete or available. You use it at your own risk.</li>
+    </ul>
+
+    <h2>What can go wrong</h2>
+    <ul>
+      <li><b>Position.</b> Your position comes from the phone. The '±' figure is the phone's own estimate and can be badly wrong under trees, in gorges and near buildings. A 10-figure reference does not mean 1 m accuracy.</li>
+      <li><b>Datum.</b> Check whether the app is on WGS84 or ED50 before you read, type or pass on a reference. The same reference on the wrong datum can be about 200 m away. ED50 values are good to about 10 m at best.</li>
+      <li><b>Map content.</b> The maps are made by volunteers. Paths may be missing, misplaced or impassable. Contours are coarse; cliffs, gullies and small features may not show.</li>
+      <li><b>Hazards are not shown.</b> The maps do not show mines or unexploded ordnance, military or restricted areas, private land, weather, snow, river levels or closures. Get that information from the local authorities before you go.</li>
+      <li><b>Routes.</b> Legs are straight lines between waypoints and ignore height. Real walking distance and effort are greater. Bearings are from grid north, not magnetic north: convert before using a compass.</li>
+      <li><b>Offline.</b> Only areas you have already viewed while online are stored, separately for each map style. Test in flight mode before you leave. The topographic map comes from a volunteer service that may be unavailable.</li>
+      <li><b>Battery.</b> GPS drains it. A flat phone is no map at all.</li>
+    </ul>
+
+    <h2>How to use it</h2>
+    <ul>
+      <li><b>Top bar.</b> CENTRE is the grid reference under the crosshair; GPS is your position. Tap either to copy it.</li>
+      <li><b>GPS.</b> On and following – drag the map to stop following – tap again to re-centre – tap once more to switch off.</li>
+      <li><b>Go to.</b> Type a full reference, or digits only for the square at the map centre.</li>
+      <li><b>n fig.</b> Sets how many figures a reference shows (1 km down to 1 m).</li>
+      <li><b>WGS84 / ED50.</b> Switches the datum of the grid and of every reference. Blue grid means ED50.</li>
+      <li><b>Grid.</b> Overlay on or off.</li>
+      <li><b>Route.</b> Add waypoints by tapping the map, from the crosshair or from a typed list. The table gives leg distance, grid bearing and running total.</li>
+      <li><b>Map.</b> Switches between the street map and the topographic map with contours.</li>
+      <li><b>?</b> Opens this page again.</li>
+    </ul>
+
+    <h2>Before you set off</h2>
+    <ul>
+      <li>Know the local emergency number and how you would give your position without this app.</li>
+      <li>Check the app against a known point on your paper map, on the datum that map uses.</li>
+    </ul>
+
+    <h2>Map data</h2>
+    <ul><li>&copy; OpenStreetMap contributors. Topographic style &copy; OpenTopoMap (CC-BY-SA), elevation from SRTM.</li></ul>
+  </div>
+  <div class="foot"><button id="iok" class="on">I understand</button></div>
 </div>
 <div id="toast"></div>
 

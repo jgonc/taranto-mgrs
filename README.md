@@ -2,6 +2,8 @@
 
 Installable web app (PWA): OpenStreetMap base map opening on Taranto, MGRS grid overlay (WGS84/UTM), GPS position as a grid reference, tap-for-grid and go-to-grid.
 
+> **Aid to navigation only – never rely on it alone.** Unofficial personal project on open data, not endorsed by any military, government or mapping organisation. Not for operational use, surveying, setting out or emergency response. Provided as is, without warranty; use at your own risk. The full instructions and limits open on first launch and from the '?' button.
+
 ## Install on Android
 
 GPS and offline mode only work when the app is served over HTTPS – opening `index.html` from phone storage will show the map but not your position.

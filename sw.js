@@ -1,5 +1,5 @@
 /* Offline support: app shell is precached; map tiles are cached as they are viewed. */
-const SHELL = 'tmgrs-shell-v4', TILES = 'tmgrs-tiles-v1', MAX_TILES = 8000;
+const SHELL = 'tmgrs-shell-v5', TILES = 'tmgrs-tiles-v1', MAX_TILES = 8000;
 const FILES = ['./', 'index.html', 'app.js', 'geo.js', 'manifest.webmanifest', 'vendor/leaflet.js', 'vendor/leaflet.css',
   'icons/icon-192.png', 'icons/icon-512.png'];
 

@@ -266,6 +266,13 @@
   });
   $('bgrid').addEventListener('click', () => { gridOn = !gridOn; store.set('grid', gridOn); $('bgrid').classList.toggle('on', gridOn); drawGrid(); });
 
+  /* ---------- Instructions and limits: shown until acknowledged, and again when the text changes ---------- */
+  const INFO_VERSION = 1;
+  function infoUi(first) { $('iok').textContent = first ? 'I understand' : 'Close'; $('info').classList.add('show'); $('info').scrollTop = 0; }
+  $('binfo').addEventListener('click', () => infoUi(false));
+  $('iok').addEventListener('click', () => { store.set('ack', INFO_VERSION); $('info').classList.remove('show'); });
+  if (store.get('ack', 0) !== INFO_VERSION) infoUi(true);
+
   /* ---------- Datum switch ---------- */
   function datUi() {
     const alt = D.name !== 'WGS84';
