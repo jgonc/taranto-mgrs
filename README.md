@@ -38,6 +38,10 @@ GPS and installation only work when the app is served over HTTPS – opening `in
 
 `index.html`, `app.js` (UI), `geo.js` (conversion maths), `sw.js` (keeps the app itself available without a connection; stores no map tiles), `manifest.webmanifest`, `icons/`, `vendor/` (Leaflet 1.9.4).
 
+## Releasing a change
+
+Change the cache version at the top of `sw.js` (`tmgrs-shell-vN`) and `APP_VERSION` in `app.js` with every release. Phones fetch a release as a complete set and reload once when it takes over; without the version change they keep the previous release. The running version is shown at the bottom of the '?' page.
+
 ## Licence
 
 The app code is released under the MIT licence – see `LICENSE`. `vendor/` holds Leaflet 1.9.4, which is separately licensed (BSD 2-Clause) by its authors. Map tiles are not part of this repository and remain under their providers' terms (OpenStreetMap, OpenTopoMap).

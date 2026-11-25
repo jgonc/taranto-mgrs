@@ -338,5 +338,14 @@
 
   $('bgrid').classList.toggle('on', gridOn); datUi(); digUi(); gpsUi(); updateCentre(); drawGrid(); drawRoute();
 
-  if ('serviceWorker' in navigator) window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(() => { /* offline cache unavailable */ }); });
+  /* ---------- Version and updates ---------- */
+  const APP_VERSION = '2026-11-25.3';
+  if ($('ver')) $('ver').textContent = 'Version ' + APP_VERSION;
+  if ('serviceWorker' in navigator) {
+    // When a new release takes over, reload once so page and scripts always come from the same release.
+    const hadController = !!navigator.serviceWorker.controller;
+    let reloaded = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => { if (hadController && !reloaded) { reloaded = true; location.reload(); } });
+    window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').then(r => r.update()).catch(() => { /* app will need a connection to open */ }); });
+  }
 })();
