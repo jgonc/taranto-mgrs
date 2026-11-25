@@ -121,7 +121,7 @@
   }
   function onFix(pos) {
     const ll = L.latLng(pos.coords.latitude, pos.coords.longitude), acc = pos.coords.accuracy;
-    lastFix = ll;
+    lastFix = ll; store.set('fix', [ll.lat, ll.lng]);
     $('gpsv').classList.remove('off'); $('gpsv').textContent = mgrs(ll); $('gpsx').textContent = '± ' + Math.round(acc) + ' m';
     if (!dot) {
       ring = L.circle(ll, { radius: acc, color: '#1976d2', weight: 1, fillOpacity: .12, interactive: false }).addTo(map);
@@ -265,34 +265,53 @@
 
   /* ---------- Place-name search (Nominatim, OpenStreetMap's search service) ----------
      Usage policy: https://operations.osmfoundation.org/policies/nominatim/
-     Kept within it by design: one request per explicit press of Go (no search-as-you-type),
-     at least 1.1 s between requests, and repeat queries answered from memory instead of re-sent. */
+     Kept within it by design: requests only on an explicit press of Go (no search-as-you-type), at most two
+     per search, at least 1.1 s apart, and repeat queries answered from memory instead of re-sent. */
   const found = {};
   let lastSearch = 0, searching = false;
   const esc = t => String(t).replace(/[&<>"']/g, ch => '&#' + ch.charCodeAt(0) + ';');
-  async function placeSearch(q) {
-    const key = q.toLowerCase();
-    if (found[key]) return found[key];
+  // Reference point for ranking: live GPS fix, else the last fix this phone had, else the map centre.
+  function searchRef() {
+    if (lastFix) return { lat: lastFix.lat, lon: lastFix.lng, label: 'your position' };
+    const k = store.get('fix', null);
+    if (k) return { lat: k[0], lon: k[1], label: 'your last known position' };
+    const c = map.getCenter();
+    return { lat: c.lat, lon: c.lng, label: 'the map centre' };
+  }
+  async function nominatim(q, box, bounded) {
     const wait = 1100 - (Date.now() - lastSearch);
     if (wait > 0) await new Promise(r => setTimeout(r, wait));
     lastSearch = Date.now();
-    const b = map.getBounds();                                  // results near the current view rank first
-    const url = 'https://nominatim.openstreetmap.org/search?format=jsonv2&limit=6&q=' + encodeURIComponent(q) +
-      '&viewbox=' + [b.getWest(), b.getNorth(), b.getEast(), b.getSouth()].map(v => v.toFixed(4)).join(',');
+    const url = 'https://nominatim.openstreetmap.org/search?format=jsonv2&limit=10&q=' + encodeURIComponent(q) +
+      '&viewbox=' + box.join(',') + (bounded ? '&bounded=1' : '');
     const res = await fetch(url, { headers: { Accept: 'application/json' } });
     if (!res.ok) throw new Error(res.status === 429 ? 'Search is busy – wait a moment and try again' : 'Search failed (' + res.status + ')');
-    return (found[key] = await res.json());
+    return res.json();
+  }
+  // Looks inside a box of roughly 50 km around the reference point first; only if that is empty, anywhere.
+  // The box is rounded outward to 0.1 degree so the exact position is never sent.
+  async function placeSearch(q) {
+    const ref = searchRef(), r1 = v => (Math.round(v * 10) / 10).toFixed(1);
+    const box = [r1(ref.lon - 0.65), r1(ref.lat + 0.5), r1(ref.lon + 0.65), r1(ref.lat - 0.5)];
+    const key = q.toLowerCase() + '|' + box.join(',');
+    if (!found[key]) {
+      let list = await nominatim(q, box, true), far = false;
+      if (!list.length) { list = await nominatim(q, box, false); far = true; }
+      found[key] = { list: list, far: far };
+    }
+    const out = found[key].list.map(r => Object.assign({ dist: G.distance(ref.lat, ref.lon, +r.lat, +r.lon) }, r)).sort((a, b) => a.dist - b.dist);
+    return { list: out, far: found[key].far, ref: ref };
   }
   async function doSearch(q) {
     if (searching) return;
     searching = true; $('gres').textContent = ''; $('gerr').textContent = 'Searching…';
     try {
-      const list = await placeSearch(q);
-      $('gerr').textContent = list.length ? '' : 'No place found with that name';
+      const got = await placeSearch(q), list = got.list;
+      $('gerr').textContent = !list.length ? 'No place found with that name' : got.far ? 'Nothing within about 50 km – these are further away' : '';
       list.forEach(r => {
         const parts = String(r.display_name || '').split(', '), btn = document.createElement('button');
         btn.type = 'button';
-        btn.innerHTML = esc(parts[0]) + '<small>' + esc(parts.slice(1).join(', ')) + (r.type ? ' · ' + esc(String(r.type).replace(/_/g, ' ')) : '') + '</small>';
+        btn.innerHTML = esc(parts[0]) + ' · ' + fmtD(r.dist) + '<small>' + esc(parts.slice(1).join(', ')) + (r.type ? ' · ' + esc(String(r.type).replace(/_/g, ' ')) : '') + '</small>';
         btn.addEventListener('click', () => {
           const ll = L.latLng(+r.lat, +r.lon), bb = (r.boundingbox || []).map(Number);
           closeGoto(); follow = false; gpsUi(); markLayer.clearLayers();
@@ -302,7 +321,7 @@
         });
         $('gres').appendChild(btn);
       });
-      if (list.length) { const s = document.createElement('div'); s.className = 'src'; s.textContent = 'Search results: Nominatim, © OpenStreetMap contributors'; $('gres').appendChild(s); }
+      if (list.length) { const s = document.createElement('div'); s.className = 'src'; s.textContent = 'Nearest first, measured from ' + got.ref.label + '. Search results: Nominatim, © OpenStreetMap contributors'; $('gres').appendChild(s); }
     } catch (e) { $('gerr').textContent = e instanceof TypeError ? 'Search needs a data connection' : e.message; }
     searching = false;
   }
@@ -339,7 +358,7 @@
   $('bgrid').classList.toggle('on', gridOn); datUi(); digUi(); gpsUi(); updateCentre(); drawGrid(); drawRoute();
 
   /* ---------- Version and updates ---------- */
-  const APP_VERSION = '2026-11-25.3';
+  const APP_VERSION = '2026-11-25.4';
   if ($('ver')) $('ver').textContent = 'Version ' + APP_VERSION;
   if ('serviceWorker' in navigator) {
     // When a new release takes over, reload once so page and scripts always come from the same release.
