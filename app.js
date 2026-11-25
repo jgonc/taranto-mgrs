@@ -29,7 +29,7 @@
     bases[baseName].addTo(map).bringToBack(); store.set('base', baseName); baseUi();
   });
   baseUi();
-  L.control.scale({ imperial: false, position: 'bottomleft' }).addTo(map);
+  L.control.scale({ imperial: false, position: 'bottomleft', maxWidth: 160 }).addTo(map);
   const gridLayer = L.layerGroup().addTo(map), markLayer = L.layerGroup().addTo(map);
 
   function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.remove('show'), 1600); }
@@ -172,6 +172,65 @@
     popupFor(ll, 'Centre of the ' + (cell.size >= 1000 ? cell.size / 1000 + ' km' : cell.size + ' m') + ' square');
   });
 
+  /* ---------- Compass, magnetic declination, grid convergence ----------
+     Three norths: grid (the grid lines), true (the meridian) and magnetic (the compass).
+       convergence = direction of grid north measured from true north, east positive – computed here;
+       declination = direction of magnetic north measured from true north, east positive – entered by the user.
+     So: true = grid + convergence = magnetic + declination. */
+  let decl = store.get('decl', null), compOn = false, heading = null, hs = 0, hc = 0, compTimer = 0;
+  const norm = d => ((d % 360) + 360) % 360;
+  const fmtB = d => String(Math.round(norm(d)) % 360).padStart(3, '0') + '°';
+  const num = t => { const v = String(t).trim().replace(',', '.').replace('−', '-'); return v === '' ? NaN : Number(v); };
+  function conv(lat, lon) {
+    const z = D.zoneOf(lat, lon), u = D.toUTM(lat, lon, z), p = D.fromUTM(z, u.e, u.n + 1000);
+    return Math.atan2((p.lon - lon) * Math.cos(lat * Math.PI / 180), p.lat - lat) * 180 / Math.PI;
+  }
+  function refPos() { if (lastFix) return [lastFix.lat, lastFix.lng]; const c = map.getCenter(); return [c.lat, c.lng]; }
+  function compUi() {
+    $('comp').classList.toggle('on', compOn && heading !== null);
+    $('cneedle').style.transform = 'rotate(' + (heading === null ? 0 : -heading) + 'deg)';   // needle points to magnetic north
+    let t = !compOn ? 'off' : heading === null ? '…' : fmtB(heading) + ' M';
+    if (compOn && heading !== null && decl !== null) { const p = refPos(); t += '\n' + fmtB(heading + decl - conv(p[0], p[1])) + ' G'; }
+    $('ctext').textContent = t;
+  }
+  function onOri(ev) {
+    let h = null;
+    if (typeof ev.webkitCompassHeading === 'number') h = ev.webkitCompassHeading;
+    else if (ev.absolute && typeof ev.alpha === 'number') h = 360 - ev.alpha;
+    if (h === null) return;
+    h = (h + ((window.screen.orientation && window.screen.orientation.angle) || 0)) * Math.PI / 180;
+    const w = heading === null ? 1 : .2;                        // light smoothing
+    hs = hs * (1 - w) + Math.sin(h) * w; hc = hc * (1 - w) + Math.cos(h) * w;
+    heading = norm(Math.atan2(hs, hc) * 180 / Math.PI); compUi();
+  }
+  const ORI = 'ondeviceorientationabsolute' in window ? 'deviceorientationabsolute' : 'deviceorientation';
+  function compStop() { compOn = false; heading = null; window.removeEventListener(ORI, onOri); clearTimeout(compTimer); compUi(); }
+  async function compStart() {
+    try {
+      const DOE = window.DeviceOrientationEvent;
+      if (DOE && typeof DOE.requestPermission === 'function' && await DOE.requestPermission() !== 'granted') { toast('Compass permission refused'); return; }
+    } catch (e) { toast('Compass not available'); return; }
+    compOn = true; heading = null; window.addEventListener(ORI, onOri); compUi();
+    clearTimeout(compTimer);
+    compTimer = setTimeout(() => { if (compOn && heading === null) { compStop(); toast('This device reports no compass heading'); } }, 4000);
+  }
+  const closeComp = () => { $('cdlg').classList.remove('show'); $('cdecl').blur(); };
+  $('comp').addEventListener('click', () => {
+    const p = refPos(), c = conv(p[0], p[1]);
+    $('cdecl').value = decl === null ? '' : decl; $('cerr').textContent = ''; $('ctog').textContent = compOn ? 'Stop compass' : 'Start compass';
+    $('cinfo').textContent = 'Grid convergence here (' + D.name + ', ' + (lastFix ? 'your position' : 'map centre') + '): grid north is ' + Math.abs(c).toFixed(1) + '° ' + (c >= 0 ? 'east' : 'west') + ' of true north. Calculated by the app.';
+    $('cdlg').classList.add('show');
+  });
+  $('ctog').addEventListener('click', () => { if (compOn) { compStop(); $('ctog').textContent = 'Start compass'; } else { compStart(); $('ctog').textContent = 'Stop compass'; } });
+  $('ccancel').addEventListener('click', closeComp);
+  $('cform').addEventListener('submit', ev => {
+    ev.preventDefault();
+    const raw = $('cdecl').value.trim(), v = num(raw);
+    if (raw !== '' && !(Math.abs(v) <= 30)) { $('cerr').textContent = 'Enter a number between -30 and 30, or leave empty'; return; }
+    decl = raw === '' ? null : v; store.set('decl', decl); closeComp(); compUi(); renderPanel();
+  });
+  compUi();
+
   /* ---------- Route: waypoints, leg distances, grid bearings ---------- */
   let route = store.get('route', []), routeOn = false, rline = null, clearArmed = 0;
   const routeLayer = L.layerGroup().addTo(map);
@@ -179,13 +238,14 @@
   function gridBrg(p, q) {               // bearing from grid north, in the UTM zone of the leg's start point
     const z = D.zoneOf(p[0], p[1]), u = D.toUTM(p[0], p[1], z), v = D.toUTM(q[0], q[1], z);
     const d = Math.atan2(v.e - u.e, v.n - u.n) * 180 / Math.PI;
-    return String(Math.round(d + 360) % 360).padStart(3, '0') + '°';
+    return (d + 360) % 360;
   }
   function legs() {
     let tot = 0;
     const rows = route.map((p, i) => {
       const d = i ? G.distance(route[i - 1][0], route[i - 1][1], p[0], p[1]) : 0; tot += d;
-      return { i: i, ref: mgrs({ lat: p[0], lng: p[1] }), d: d, b: i ? gridBrg(route[i - 1], p) : '', cum: tot };
+      return { i: i, ref: mgrs({ lat: p[0], lng: p[1] }), d: d, b: i ? fmtB(gridBrg(route[i - 1], p)) : '',
+        m: i && decl !== null ? fmtB(gridBrg(route[i - 1], p) + conv(route[i - 1][0], route[i - 1][1]) - decl) : '', cum: tot };
     });
     return { rows: rows, tot: tot };
   }
@@ -211,9 +271,9 @@
   function renderPanel() {
     const L = legs();
     $('rhint').style.display = route.length ? 'none' : 'block';
-    $('rtab').innerHTML = !route.length ? '' : '<tr><th>#</th><th>Grid</th><th>Leg</th><th>Brg (grid)</th><th>Total</th></tr>' +
+    $('rtab').innerHTML = !route.length ? '' : '<tr><th>#</th><th>Grid</th><th>Leg</th><th>Brg G</th>' + (decl !== null ? '<th>Brg M</th>' : '') + '<th>Total</th></tr>' +
       L.rows.map(r => '<tr><td>' + (r.i + 1) + '</td><td class="mono">' + r.ref + '</td><td>' + (r.i ? fmtD(r.d) : '–') + '</td><td>' +
-        (r.i ? r.b : '–') + '</td><td>' + fmtD(r.cum) + '</td></tr>').join('');
+        (r.i ? r.b : '–') + '</td>' + (decl !== null ? '<td>' + (r.i ? r.m : '–') + '</td>' : '') + '<td>' + fmtD(r.cum) + '</td></tr>').join('');
     routeHud(L); liftCredit();
   }
   // The map credit must stay visible: keep it above the bottom bar and, when open, the route panel.
@@ -246,6 +306,36 @@
     if (Date.now() - clearArmed < 3000) { route = []; clearArmed = 0; $('rclear').textContent = 'Clear'; store.set('route', route); drawRoute(); }
     else { clearArmed = Date.now(); $('rclear').textContent = 'Sure?'; setTimeout(() => { $('rclear').textContent = 'Clear'; }, 3000); }
   });
+  // Polar entry: a new waypoint at a bearing and ground distance from the last one (or from the user's position).
+  function polarOrigin() {
+    if (route.length) return { p: route[route.length - 1], label: 'waypoint ' + route.length, add: false };
+    if (lastFix) return { p: [lastFix.lat, lastFix.lng], label: 'your GPS position (added as waypoint 1)', add: true };
+    const c = map.getCenter(); return { p: [c.lat, c.lng], label: 'the crosshair (added as waypoint 1)', add: true };
+  }
+  const closePolar = () => { $('pdlg').classList.remove('show'); $('pb').blur(); $('pd').blur(); };
+  $('rpolar').addEventListener('click', () => {
+    $('perr').textContent = ''; $('pfrom').textContent = 'From ' + polarOrigin().label + '. Grid: ' + D.name + '.';
+    $('pref').options[1].disabled = decl === null; if (decl === null) $('pref').value = 'G';
+    $('pdlg').classList.add('show'); $('pb').focus();
+  });
+  $('pcancel').addEventListener('click', closePolar);
+  $('pform').addEventListener('submit', ev => {
+    ev.preventDefault();
+    const b = num($('pb').value), d = num($('pd').value), o = polarOrigin();
+    if (!(b >= 0 && b <= 360)) { $('perr').textContent = 'Bearing must be between 0 and 360'; return; }
+    if (!(d > 0 && d <= 100000)) { $('perr').textContent = 'Distance must be between 1 m and 100 km'; return; }
+    const gb = ($('pref').value === 'M' && decl !== null ? b + decl - conv(o.p[0], o.p[1]) : b) * Math.PI / 180;
+    const z = D.zoneOf(o.p[0], o.p[1]), u = D.toUTM(o.p[0], o.p[1], z);
+    let k = 1, t = null;                                        // k corrects grid distance to ground distance
+    for (let i = 0; i < 3; i++) {
+      t = D.fromUTM(z, u.e + d * k * Math.sin(gb), u.n + d * k * Math.cos(gb));
+      const m = G.distance(o.p[0], o.p[1], t.lat, t.lon); if (m > 0) k *= d / m;
+    }
+    if (o.add) route.push(o.p);
+    closePolar(); addWp(t.lat, t.lon); follow = false; gpsUi();
+    map.fitBounds(L.latLngBounds(route.slice(-2)), { maxZoom: 17, paddingTopLeft: [40, 120], paddingBottomRight: [40, 280] });
+  });
+
   const closeList = () => { $('rlist').classList.remove('show'); $('rin').blur(); };
   $('rgrids').addEventListener('click', () => { $('rerr').textContent = ''; $('rlist').classList.add('show'); $('rin').focus(); });
   $('rcancel').addEventListener('click', closeList);
@@ -336,7 +426,7 @@
   $('bgrid').addEventListener('click', () => { gridOn = !gridOn; store.set('grid', gridOn); $('bgrid').classList.toggle('on', gridOn); drawGrid(); });
 
   /* ---------- Instructions and limits: shown until acknowledged, and again when the text changes ---------- */
-  const INFO_VERSION = 2;
+  const INFO_VERSION = 3;
   function infoUi(first) { $('iok').textContent = first ? 'I understand' : 'Close'; $('info').classList.add('show'); $('info').scrollTop = 0; }
   $('binfo').addEventListener('click', () => infoUi(false));
   $('iok').addEventListener('click', () => { store.set('ack', INFO_VERSION); $('info').classList.remove('show'); });
@@ -358,7 +448,7 @@
   $('bgrid').classList.toggle('on', gridOn); datUi(); digUi(); gpsUi(); updateCentre(); drawGrid(); drawRoute();
 
   /* ---------- Version and updates ---------- */
-  const APP_VERSION = '2026-11-25.4';
+  const APP_VERSION = '2026-11-25.5';
   if ($('ver')) $('ver').textContent = 'Version ' + APP_VERSION;
   if ('serviceWorker' in navigator) {
     // When a new release takes over, reload once so page and scripts always come from the same release.

@@ -22,7 +22,9 @@ GPS and installation only work when the app is served over HTTPS – opening `in
 - **Map: Street / Topo** (button under the top bar): switches the base map between the standard OpenStreetMap style and OpenTopoMap, which adds contour lines and hill shading. Topo tiles are native up to zoom 17; closer zooms are enlarged.
 - **Grid**: overlay on/off. Spacing adapts to zoom from 100 km to 10 m; heavier lines mark the next interval up.
 - Tap the map for a 10-figure reference and lat/long (when Route is off).
-- **Route**: opens the route panel. Add waypoints by tapping the map, with '+ Centre' (the crosshair position) or '+ Grids' (a typed list of references, one per line). Drag a waypoint to move it; 'Undo' removes the last; 'Clear' needs a second tap. The table gives each leg's distance and bearing and the running total. With two or more waypoints the top bar shows total distance and, with GPS on, distance left along the route and distance off it. The route is kept on the phone between sessions.
+- **Compass dial** (under the '?'): tap to start the phone compass and to enter the magnetic declination for your area. The dial shows the heading of the top of the phone from magnetic north (M) and, once a declination is set, from grid north (G). The dialog also states the grid convergence at your position, which the app calculates. The app does not calculate declination: enter it from your map's margin or an official calculator.
+- **Scale bar**: bottom left of the map.
+- **Route**: opens the route panel. '+ Polar' adds a waypoint at a bearing (grid, or magnetic once a declination is set) and ground distance from the last waypoint, or from your position if the route is empty. With a declination set, the route table shows a magnetic bearing beside each grid bearing. Add waypoints by tapping the map, with '+ Centre' (the crosshair position) or '+ Grids' (a typed list of references, one per line). Drag a waypoint to move it; 'Undo' removes the last; 'Clear' needs a second tap. The table gives each leg's distance and bearing and the running total. With two or more waypoints the top bar shows total distance and, with GPS on, distance left along the route and distance off it. The route is kept on the phone between sessions.
 
 ## Limits
 
@@ -30,7 +32,8 @@ GPS and installation only work when the app is served over HTTPS – opening `in
 - No offline map. Both map styles are loaded live from their providers and need a data connection. OpenStreetMap's tile usage policy states that offline use of its tile server is not permitted and prohibits any 'download for offline' feature; OpenTopoMap's terms have not been confirmed, so it is treated the same way. The app therefore stores no map tiles – only the browser's ordinary cache applies. Without signal the app still opens and shows grid, position and route over a blank or partial map.
 - Topo layer: OpenTopoMap is a volunteer-run service with no availability guarantee; contours come from SRTM satellite data (roughly 30 m ground resolution), so small terrain features and cliffs may not show. If it is down, switch back to Street.
 - No Norway/Svalbard zone exceptions and no polar (UPS) areas – irrelevant for Italy.
-- Route distances are straight-line legs on the WGS84 ellipsoid – no elevation, no path-following. Bearings are from **grid** north, not true or magnetic: apply your own conversion before using a compass.
+- Route distances are straight-line legs on the WGS84 ellipsoid – no elevation, no path-following. Bearings are from **grid** north unless marked M; magnetic values depend entirely on the declination you entered.
+- The phone compass is a rough check only: metal, magnets and poor calibration can put it out by 10° or more.
 - GPS accuracy is whatever the phone reports; a 10-figure read-out does not mean 1 m accuracy.
 - Open data only. Nothing in the app is site-specific.
 

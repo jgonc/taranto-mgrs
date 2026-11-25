@@ -42,6 +42,17 @@
   #info .warn { border: 2px solid #ffb300; border-radius: 10px; padding: 12px 14px; color: #fff; font-weight: 600; }
   #info .foot { position: fixed; left: 0; right: 0; bottom: 0; padding: 10px 16px; padding-bottom: max(10px, env(safe-area-inset-bottom)); background: #10202c; box-shadow: 0 -1px 6px rgba(0, 0, 0, .5); }
   #info .foot button { width: 100%; max-width: 640px; display: block; margin: 0 auto; padding: 14px; font-size: 15px; }
+  #comp { position: absolute; left: 8px; top: calc(100% + 56px); width: 66px; height: 66px; border-radius: 50%; padding: 0; background: rgba(16, 32, 44, .92);
+          border: 2px solid #8fb3c9; box-shadow: 0 1px 5px rgba(0, 0, 0, .45); }
+  #cneedle { position: absolute; left: 50%; top: 4px; margin-left: -6px; width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent;
+             border-bottom: 15px solid #6d8797; transform-origin: 6px 27px; }
+  #comp.on #cneedle { border-bottom-color: #ff5252; }
+  #ctext { position: absolute; left: 0; right: 0; top: 22px; font-size: 11px; line-height: 13px; font-weight: 600; text-align: center; white-space: pre-line; }
+  .dlg select { font-size: 18px; padding: 9px; border-radius: 8px; border: 1px solid #3b6079; background: #0b1820; color: #fff; }
+  .dlg .note { font-size: 12px; color: #8fb3c9; line-height: 1.35; }
+  #cerr, #perr { color: #ff8fa8; font-size: 13px; min-height: 1.2em; }
+  .leaflet-control-scale-line { font-size: 12px; font-weight: 700; color: #10202c; background: rgba(255, 255, 255, .85); border: 2px solid #10202c; border-top: none; padding: 2px 6px; }
+  #rpanel td, #rpanel th { padding: 4px 4px; }
   #hud.alt #cx { color: #ffb300; font-weight: 700; }
   button:active { filter: brightness(1.25); }
   .leaflet-bottom { bottom: 62px; }
@@ -89,6 +100,7 @@
   <div class="row" id="rowg"><span class="k">GPS</span><span class="v mono off" id="gpsv">off</span><span class="x" id="gpsx"></span></div>
   <button id="binfo" aria-label="Instructions and limits">?</button>
   <button id="bmap">Map: Street</button>
+  <button id="comp" aria-label="Compass and north settings"><span id="cneedle"></span><span id="ctext">off</span></button>
   <div class="row" id="rowr"><span class="k">ROUTE</span><span class="v mono" id="rv"></span></div>
 </div>
 
@@ -111,9 +123,33 @@
   </form>
 </div>
 <div id="rpanel">
-  <div class="btns"><button id="radd">+ Centre</button><button id="rgrids">+ Grids</button><button id="rundo">Undo</button><button id="rclear">Clear</button></div>
+  <div class="btns"><button id="radd">+ Centre</button><button id="rgrids">+ Grids</button><button id="rpolar">+ Polar</button><button id="rundo">Undo</button><button id="rclear">Clear</button></div>
   <div id="rhint">Tap the map or use '+ Centre' (crosshair) to add waypoints. Drag a waypoint to move it.</div>
   <table id="rtab"></table>
+</div>
+<div id="cdlg" class="dlg">
+  <form id="cform" autocomplete="off">
+    <button type="button" id="ctog">Start compass</button>
+    <div class="note">The dial shows the direction the top of the phone points, from <b>magnetic</b> north (M). Hold the phone flat, away from metal. Expect errors of 10° or more: check against a real compass before trusting it.</div>
+    <label for="cdecl">Magnetic declination where you are, in degrees – east positive, west negative. Take it from your map's margin or an official calculator. Leave empty if unknown.</label>
+    <input id="cdecl" class="mono" inputmode="text" spellcheck="false">
+    <div class="note" id="cinfo"></div>
+    <div class="note">With a declination set, the dial also shows the grid bearing (G) and the route table gains a magnetic column.</div>
+    <div id="cerr"></div>
+    <div class="btns"><button type="button" id="ccancel">Cancel</button><button type="submit" class="on">Save</button></div>
+  </form>
+</div>
+<div id="pdlg" class="dlg">
+  <form id="pform" autocomplete="off">
+    <div class="note" id="pfrom"></div>
+    <label for="pb">Bearing, in degrees</label>
+    <input id="pb" class="mono" inputmode="decimal" spellcheck="false">
+    <select id="pref"><option value="G">from grid north</option><option value="M">from magnetic north</option></select>
+    <label for="pd">Distance, in metres</label>
+    <input id="pd" class="mono" inputmode="decimal" spellcheck="false">
+    <div id="perr"></div>
+    <div class="btns"><button type="button" id="pcancel">Cancel</button><button type="submit" class="on">Add</button></div>
+  </form>
 </div>
 <div id="rlist" class="dlg">
   <form id="rform" autocomplete="off">
@@ -141,7 +177,8 @@
       <li><b>Datum.</b> Check whether the app is on WGS84 or ED50 before you read, type or pass on a reference. The same reference on the wrong datum can be about 200 m away. ED50 values are good to about 10 m at best.</li>
       <li><b>Map content.</b> The maps are made by volunteers. Paths may be missing, misplaced or impassable. Contours are coarse; cliffs, gullies and small features may not show.</li>
       <li><b>Hazards are not shown.</b> The maps do not show mines or unexploded ordnance, military or restricted areas, private land, weather, snow, river levels or closures. Get that information from the local authorities before you go.</li>
-      <li><b>Routes.</b> Legs are straight lines between waypoints and ignore height. Real walking distance and effort are greater. Bearings are from grid north, not magnetic north: convert before using a compass.</li>
+      <li><b>Routes.</b> Legs are straight lines between waypoints and ignore height. Real walking distance and effort are greater. Bearings are from grid north unless the column is marked M. Magnetic bearings are only as good as the declination you entered.</li>
+      <li><b>Compass.</b> The phone's compass is easily thrown off by metal, magnets, cases and poor calibration, and can be wrong by 10° or more without warning. Treat it as a rough check, never as your compass.</li>
       <li><b>No offline map.</b> Both maps need a data connection. Without signal the app still opens and shows the grid, your position and your route, but the map behind them may be blank. Do not plan on having a map out of coverage. The topographic map comes from a volunteer service that may be unavailable.</li>
       <li><b>Battery.</b> GPS drains it. A flat phone is no map at all.</li>
     </ul>
@@ -155,7 +192,10 @@
       <li><b>WGS84 / ED50.</b> Switches the datum of the grid and of every reference. Blue grid means ED50.</li>
       <li><b>Grid.</b> Overlay on or off.</li>
       <li><b>Route.</b> Add waypoints by tapping the map, from the crosshair or from a typed list. The table gives leg distance, grid bearing and running total.</li>
+      <li><b>+ Polar</b> (in the route panel). Adds a waypoint at a bearing and distance from the last one – or from your position if the route is empty.</li>
       <li><b>Map.</b> Switches between the street map and the topographic map with contours.</li>
+      <li><b>Compass dial.</b> Tap it to start the compass and to enter the magnetic declination. It also shows how far grid north is from true north where you are.</li>
+      <li><b>Scale bar.</b> Bottom left of the map; it changes as you zoom.</li>
       <li><b>?</b> Opens this page again.</li>
     </ul>
 

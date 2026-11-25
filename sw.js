@@ -5,7 +5,7 @@
    Updates are all-or-nothing: each release has its own cache, filled in one go with fresh copies of every
    file, and the app is served only from that cache. This prevents a new script running against an old page.
    CHANGE THE VERSION BELOW ON EVERY RELEASE, or phones will keep the previous one. */
-const SHELL = 'tmgrs-shell-v9';
+const SHELL = 'tmgrs-shell-v10';
 const FILES = ['./', 'index.html', 'app.js', 'geo.js', 'manifest.webmanifest', 'vendor/leaflet.js', 'vendor/leaflet.css',
   'icons/icon-192.png', 'icons/icon-512.png'];
 
