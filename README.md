@@ -6,7 +6,7 @@ Installable web app (PWA): OpenStreetMap base map opening on Taranto, MGRS grid 
 
 ## Install on Android
 
-GPS and offline mode only work when the app is served over HTTPS – opening `index.html` from phone storage will show the map but not your position.
+GPS and installation only work when the app is served over HTTPS – opening `index.html` from phone storage will show the map but not your position.
 
 1. Put the contents of this folder on any HTTPS static host (GitHub Pages, Netlify, Cloudflare Pages or your own server). No build step.
 2. Open the URL in Chrome on the phone and allow location.
@@ -27,7 +27,7 @@ GPS and offline mode only work when the app is served over HTTPS – opening `in
 ## Limits
 
 - Datums: WGS84 and ED50 only. ED50 uses the International 1924 ellipsoid and the geocentric translation EPSG:1133 'ED50 to WGS 84 (1)' (-87, -98, -121 m; source DMA TR8350.2), whose stated accuracy is 10 m. ED50 references are therefore capped at 8 figures and should be treated as good to about 10 m, not better. The national NTv2 grid (IGM) is more accurate and is not included. No Roma 40/Gauss-Boaga.
-- Offline map = tiles already viewed while online (up to 8 000 tiles, shared by both map styles; each style is cached separately). Pan and zoom over the area at the zoom levels you need before going out of coverage. Bulk tile download is deliberately absent: the OpenStreetMap tile usage policy does not allow it.
+- No offline map. Both map styles are loaded live from their providers and need a data connection. OpenStreetMap's tile usage policy states that offline use of its tile server is not permitted and prohibits any 'download for offline' feature; OpenTopoMap's terms have not been confirmed, so it is treated the same way. The app therefore stores no map tiles – only the browser's ordinary cache applies. Without signal the app still opens and shows grid, position and route over a blank or partial map.
 - Topo layer: OpenTopoMap is a volunteer-run service with no availability guarantee; contours come from SRTM satellite data (roughly 30 m ground resolution), so small terrain features and cliffs may not show. If it is down, switch back to Street.
 - No Norway/Svalbard zone exceptions and no polar (UPS) areas – irrelevant for Italy.
 - Route distances are straight-line legs on the WGS84 ellipsoid – no elevation, no path-following. Bearings are from **grid** north, not true or magnetic: apply your own conversion before using a compass.
@@ -36,7 +36,7 @@ GPS and offline mode only work when the app is served over HTTPS – opening `in
 
 ## Files
 
-`index.html`, `app.js` (UI), `geo.js` (conversion maths), `sw.js` (offline cache), `manifest.webmanifest`, `icons/`, `vendor/` (Leaflet 1.9.4).
+`index.html`, `app.js` (UI), `geo.js` (conversion maths), `sw.js` (keeps the app itself available without a connection; stores no map tiles), `manifest.webmanifest`, `icons/`, `vendor/` (Leaflet 1.9.4).
 
 ## Licence
 

@@ -16,7 +16,7 @@
   const map = L.map('map', { zoomControl: false }).setView(view ? [view[0], view[1]] : TARANTO, view ? view[2] : 13);
   const OSM_ATTR = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
   const bases = {
-    Street: L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, crossOrigin: 'anonymous', attribution: OSM_ATTR }),
+    Street: L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: OSM_ATTR }),
     // Contours and hill shading. Native tiles stop at zoom 17; closer zooms are enlarged, not sharper.
     Topo: L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', { subdomains: 'abc', maxZoom: 19, maxNativeZoom: 17,
       attribution: 'Map data: ' + OSM_ATTR + ', SRTM | Map style: &copy; <a href="https://opentopomap.org">OpenTopoMap</a> (CC-BY-SA)' })
@@ -213,7 +213,12 @@
     $('rtab').innerHTML = !route.length ? '' : '<tr><th>#</th><th>Grid</th><th>Leg</th><th>Brg (grid)</th><th>Total</th></tr>' +
       L.rows.map(r => '<tr><td>' + (r.i + 1) + '</td><td class="mono">' + r.ref + '</td><td>' + (r.i ? fmtD(r.d) : '–') + '</td><td>' +
         (r.i ? r.b : '–') + '</td><td>' + fmtD(r.cum) + '</td></tr>').join('');
-    routeHud(L);
+    routeHud(L); liftCredit();
+  }
+  // The map credit must stay visible: keep it above the bottom bar and, when open, the route panel.
+  function liftCredit() {
+    const h = $('bar').offsetHeight + (routeOn ? $('rpanel').offsetHeight : 0);
+    if (h) document.querySelectorAll('.leaflet-bottom').forEach(el => { el.style.bottom = h + 'px'; });
   }
   function drawRoute() {
     routeLayer.clearLayers();
@@ -267,7 +272,7 @@
   $('bgrid').addEventListener('click', () => { gridOn = !gridOn; store.set('grid', gridOn); $('bgrid').classList.toggle('on', gridOn); drawGrid(); });
 
   /* ---------- Instructions and limits: shown until acknowledged, and again when the text changes ---------- */
-  const INFO_VERSION = 1;
+  const INFO_VERSION = 2;
   function infoUi(first) { $('iok').textContent = first ? 'I understand' : 'Close'; $('info').classList.add('show'); $('info').scrollTop = 0; }
   $('binfo').addEventListener('click', () => infoUi(false));
   $('iok').addEventListener('click', () => { store.set('ack', INFO_VERSION); $('info').classList.remove('show'); });
