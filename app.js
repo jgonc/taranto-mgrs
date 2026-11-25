@@ -155,13 +155,14 @@
 
   /* ---------- Go to grid ---------- */
   function closeGoto() { $('goto').classList.remove('show'); $('gin').blur(); }
-  $('bgo').addEventListener('click', () => { $('gerr').textContent = ''; $('goto').classList.add('show'); $('gin').focus(); $('gin').select(); });
+  $('bgo').addEventListener('click', () => { $('gerr').textContent = ''; $('gres').textContent = ''; $('goto').classList.add('show'); $('gin').focus(); $('gin').select(); });
   $('gcancel').addEventListener('click', closeGoto);
   $('gform').addEventListener('submit', ev => {
     ev.preventDefault();
     const c = map.getCenter(), ctx = D.toMGRS(c.lat, c.lng, 0);
     let cell;
-    try { cell = D.parseMGRS($('gin').value, ctx || undefined); } catch (e) { $('gerr').textContent = e.message; return; }
+    try { cell = D.parseMGRS($('gin').value, ctx || undefined); }
+    catch (e) { if (/\p{L}{3,}/u.test($('gin').value)) doSearch($('gin').value.trim()); else $('gerr').textContent = e.message; return; }
     closeGoto(); follow = false; gpsUi();
     markLayer.clearLayers();
     L.polygon(cell.corners, { color: '#ff6f00', weight: 2, fillOpacity: .15, interactive: false }).addTo(markLayer);
@@ -261,6 +262,50 @@
     follow = false; gpsUi();
     if (route.length > 1) map.fitBounds(L.latLngBounds(route), { paddingTopLeft: [30, 110], paddingBottomRight: [30, 260] }); else map.setView(route[0], 15);
   });
+
+  /* ---------- Place-name search (Nominatim, OpenStreetMap's search service) ----------
+     Usage policy: https://operations.osmfoundation.org/policies/nominatim/
+     Kept within it by design: one request per explicit press of Go (no search-as-you-type),
+     at least 1.1 s between requests, and repeat queries answered from memory instead of re-sent. */
+  const found = {};
+  let lastSearch = 0, searching = false;
+  const esc = t => String(t).replace(/[&<>"']/g, ch => '&#' + ch.charCodeAt(0) + ';');
+  async function placeSearch(q) {
+    const key = q.toLowerCase();
+    if (found[key]) return found[key];
+    const wait = 1100 - (Date.now() - lastSearch);
+    if (wait > 0) await new Promise(r => setTimeout(r, wait));
+    lastSearch = Date.now();
+    const b = map.getBounds();                                  // results near the current view rank first
+    const url = 'https://nominatim.openstreetmap.org/search?format=jsonv2&limit=6&q=' + encodeURIComponent(q) +
+      '&viewbox=' + [b.getWest(), b.getNorth(), b.getEast(), b.getSouth()].map(v => v.toFixed(4)).join(',');
+    const res = await fetch(url, { headers: { Accept: 'application/json' } });
+    if (!res.ok) throw new Error(res.status === 429 ? 'Search is busy – wait a moment and try again' : 'Search failed (' + res.status + ')');
+    return (found[key] = await res.json());
+  }
+  async function doSearch(q) {
+    if (searching) return;
+    searching = true; $('gres').textContent = ''; $('gerr').textContent = 'Searching…';
+    try {
+      const list = await placeSearch(q);
+      $('gerr').textContent = list.length ? '' : 'No place found with that name';
+      list.forEach(r => {
+        const parts = String(r.display_name || '').split(', '), btn = document.createElement('button');
+        btn.type = 'button';
+        btn.innerHTML = esc(parts[0]) + '<small>' + esc(parts.slice(1).join(', ')) + (r.type ? ' · ' + esc(String(r.type).replace(/_/g, ' ')) : '') + '</small>';
+        btn.addEventListener('click', () => {
+          const ll = L.latLng(+r.lat, +r.lon), bb = (r.boundingbox || []).map(Number);
+          closeGoto(); follow = false; gpsUi(); markLayer.clearLayers();
+          if (bb.length === 4 && bb.every(isFinite)) map.fitBounds([[bb[0], bb[2]], [bb[1], bb[3]]], { maxZoom: 16, paddingTopLeft: [20, 100], paddingBottomRight: [20, 80] });
+          else map.setView(ll, 15);
+          popupFor(ll, esc(parts[0]));
+        });
+        $('gres').appendChild(btn);
+      });
+      if (list.length) { const s = document.createElement('div'); s.className = 'src'; s.textContent = 'Search results: Nominatim, © OpenStreetMap contributors'; $('gres').appendChild(s); }
+    } catch (e) { $('gerr').textContent = e instanceof TypeError ? 'Search needs a data connection' : e.message; }
+    searching = false;
+  }
 
   /* ---------- Precision and grid toggles ---------- */
   function digUi() { const d = Math.min(digits, D.maxDigits); $('bdig').textContent = d * 2 + ' fig'; $('cx').textContent = D.name + ' · ' + ['100 km', '10 km', '1 km', '100 m', '10 m', '1 m'][d]; }

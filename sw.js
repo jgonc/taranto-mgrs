@@ -1,7 +1,7 @@
 /* Keeps the app itself (pages, scripts, icons) available without a connection.
    Map tiles are deliberately NOT stored here: the tile providers do not permit offline use of their
    servers, so tile requests go straight to the network and only the browser's ordinary cache applies. */
-const SHELL = 'tmgrs-shell-v6';
+const SHELL = 'tmgrs-shell-v7';
 const FILES = ['./', 'index.html', 'app.js', 'geo.js', 'manifest.webmanifest', 'vendor/leaflet.js', 'vendor/leaflet.css',
   'icons/icon-192.png', 'icons/icon-512.png'];
 

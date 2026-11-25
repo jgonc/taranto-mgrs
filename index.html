@@ -55,6 +55,11 @@
   .dlg label { font-size: 13px; color: #8fb3c9; }
   .dlg input { font-size: 20px; padding: 10px; border-radius: 8px; border: 1px solid #3b6079; background: #0b1820; color: #fff; text-transform: uppercase; }
   .dlg .btns { display: flex; gap: 8px; } .dlg .btns button { flex: 1; }
+  #gin { text-transform: none; }
+  .dlg form { max-height: calc(100vh - 120px); overflow: auto; }
+  #gres button { display: block; width: 100%; text-align: left; font-weight: 400; font-size: 14px; padding: 10px; margin-top: 6px; }
+  #gres button small { display: block; color: #8fb3c9; font-size: 12px; }
+  #gres .src { color: #8fb3c9; font-size: 11px; margin-top: 8px; }
   #gerr, #rerr { color: #ff8fa8; font-size: 13px; min-height: 1.2em; }
   #toast { position: fixed; left: 50%; bottom: 84px; transform: translateX(-50%); z-index: 3000; background: #10202c; color: #fff;
            padding: 8px 14px; border-radius: 20px; font-size: 13px; opacity: 0; transition: opacity .2s; pointer-events: none; }
@@ -98,9 +103,10 @@
 
 <div id="goto" class="dlg">
   <form id="gform" autocomplete="off">
-    <label for="gin">Grid reference (<span id="gdat">WGS84</span>) – full (33T XE 8912 8234) or digits only for the current square</label>
-    <input id="gin" class="mono" inputmode="text" autocapitalize="characters" spellcheck="false">
+    <label for="gin">Grid reference (<span id="gdat">WGS84</span>) – full (33T XE 8912 8234) or digits only for the current square – or a place name</label>
+    <input id="gin" class="mono" inputmode="text" autocapitalize="none" spellcheck="false">
     <div id="gerr"></div>
+    <div id="gres"></div>
     <div class="btns"><button type="button" id="gcancel">Cancel</button><button type="submit" class="on">Go</button></div>
   </form>
 </div>
@@ -144,7 +150,7 @@
     <ul>
       <li><b>Top bar.</b> CENTRE is the grid reference under the crosshair; GPS is your position. Tap either to copy it.</li>
       <li><b>GPS.</b> On and following – drag the map to stop following – tap again to re-centre – tap once more to switch off.</li>
-      <li><b>Go to.</b> Type a full reference, or digits only for the square at the map centre.</li>
+      <li><b>Go to.</b> Type a full reference, or digits only for the square at the map centre. Or type the full name of a town, peak or other named place and press Go to search for it (needs a data connection; check the result is the place you meant).</li>
       <li><b>n fig.</b> Sets how many figures a reference shows (1 km down to 1 m).</li>
       <li><b>WGS84 / ED50.</b> Switches the datum of the grid and of every reference. Blue grid means ED50.</li>
       <li><b>Grid.</b> Overlay on or off.</li>
