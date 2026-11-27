@@ -203,25 +203,31 @@
     hs = hs * (1 - w) + Math.sin(h) * w; hc = hc * (1 - w) + Math.cos(h) * w;
     heading = norm(Math.atan2(hs, hc) * 180 / Math.PI); compUi();
   }
-  const ORI = 'ondeviceorientationabsolute' in window ? 'deviceorientationabsolute' : 'deviceorientation';
-  function compStop() { compOn = false; heading = null; window.removeEventListener(ORI, onOri); clearTimeout(compTimer); compUi(); }
+  // Both event names are listened to: phones differ in which one carries a north-referenced heading.
+  const ORI = ['deviceorientationabsolute', 'deviceorientation'];
+  function compStop() { compOn = false; heading = null; ORI.forEach(n => window.removeEventListener(n, onOri)); clearTimeout(compTimer); compUi(); }
   async function compStart() {
     try {
       const DOE = window.DeviceOrientationEvent;
       if (DOE && typeof DOE.requestPermission === 'function' && await DOE.requestPermission() !== 'granted') { toast('Compass permission refused'); return; }
     } catch (e) { toast('Compass not available'); return; }
-    compOn = true; heading = null; window.addEventListener(ORI, onOri); compUi();
+    compOn = true; heading = null; ORI.forEach(n => window.addEventListener(n, onOri)); compUi();
+    toast('Compass on – tap the dial again for settings');
     clearTimeout(compTimer);
-    compTimer = setTimeout(() => { if (compOn && heading === null) { compStop(); toast('This device reports no compass heading'); } }, 4000);
+    compTimer = setTimeout(() => {
+      if (compOn && heading === null) { compStop(); openComp('No compass heading from this phone. Check that motion sensors are allowed for this site in the browser settings; some phones and browsers do not provide one at all.'); }
+    }, 4000);
   }
   const closeComp = () => { $('cdlg').classList.remove('show'); $('cdecl').blur(); };
-  $('comp').addEventListener('click', () => {
+  // First tap starts the compass straight away; a tap while it is running opens the settings.
+  $('comp').addEventListener('click', () => { if (compOn) openComp(''); else compStart(); });
+  function openComp(msg) {
     const p = refPos(), c = conv(p[0], p[1]);
-    $('cdecl').value = decl === null ? '' : decl; $('cerr').textContent = ''; $('ctog').textContent = compOn ? 'Stop compass' : 'Start compass';
+    $('cdecl').value = decl === null ? '' : decl; $('cerr').textContent = msg; $('ctog').textContent = compOn ? 'Stop compass' : 'Start compass';
     $('cinfo').textContent = 'Grid convergence here (' + D.name + ', ' + (lastFix ? 'your position' : 'map centre') + '): grid north is ' + Math.abs(c).toFixed(1) + '° ' + (c >= 0 ? 'east' : 'west') + ' of true north. Calculated by the app.';
     $('cdlg').classList.add('show');
-  });
-  $('ctog').addEventListener('click', () => { if (compOn) { compStop(); $('ctog').textContent = 'Start compass'; } else { compStart(); $('ctog').textContent = 'Stop compass'; } });
+  }
+  $('ctog').addEventListener('click', () => { closeComp(); if (compOn) compStop(); else compStart(); });
   $('ccancel').addEventListener('click', closeComp);
   $('cform').addEventListener('submit', ev => {
     ev.preventDefault();
@@ -448,7 +454,7 @@
   $('bgrid').classList.toggle('on', gridOn); datUi(); digUi(); gpsUi(); updateCentre(); drawGrid(); drawRoute();
 
   /* ---------- Version and updates ---------- */
-  const APP_VERSION = '2026-11-25.5';
+  const APP_VERSION = '2026-11-27.1';
   if ($('ver')) $('ver').textContent = 'Version ' + APP_VERSION;
   if ('serviceWorker' in navigator) {
     // When a new release takes over, reload once so page and scripts always come from the same release.
